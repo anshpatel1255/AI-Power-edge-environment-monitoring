@@ -1,0 +1,15 @@
+{
+  "name": "Forest Fire Scenario",
+  "description": "Simulates fire detection at NODE-03 with rising smoke AQI",
+  "target_node": "NODE-03",
+  "duration_steps": 24,
+  "ramp": [
+    {"step": 0,  "smoke_aqi": 35,  "temperature_c": 29, "risk_fire": 15, "flame_detected": false},
+    {"step": 4,  "smoke_aqi": 70,  "temperature_c": 33, "risk_fire": 42, "flame_detected": false},
+    {"step": 8,  "smoke_aqi": 140, "temperature_c": 38, "risk_fire": 68, "flame_detected": true},
+    {"step": 12, "smoke_aqi": 210, "temperature_c": 44, "risk_fire": 85, "flame_detected": true},
+    {"step": 16, "smoke_aqi": 175, "temperature_c": 40, "risk_fire": 72, "flame_detected": true},
+    {"step": 20, "smoke_aqi": 90,  "temperature_c": 34, "risk_fire": 50, "flame_detected": false},
+    {"step": 24, "smoke_aqi": 45,  "temperature_c": 30, "risk_fire": 22, "flame_detected": false}
+  ]
+}

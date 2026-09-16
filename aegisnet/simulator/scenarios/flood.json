@@ -1,0 +1,15 @@
+{
+  "name": "Flood Scenario",
+  "description": "Simulates fast-rising water level upstream triggering downstream alerts",
+  "target_node": "NODE-01",
+  "duration_steps": 36,
+  "ramp": [
+    {"step": 0,  "water_level_cm": 45,  "risk_flood": 20, "humidity_pct": 72},
+    {"step": 6,  "water_level_cm": 62,  "risk_flood": 45, "humidity_pct": 78},
+    {"step": 12, "water_level_cm": 85,  "risk_flood": 68, "humidity_pct": 85},
+    {"step": 18, "water_level_cm": 110, "risk_flood": 82, "humidity_pct": 91},
+    {"step": 24, "water_level_cm": 95,  "risk_flood": 74, "humidity_pct": 88},
+    {"step": 30, "water_level_cm": 72,  "risk_flood": 55, "humidity_pct": 81},
+    {"step": 36, "water_level_cm": 50,  "risk_flood": 30, "humidity_pct": 74}
+  ]
+}

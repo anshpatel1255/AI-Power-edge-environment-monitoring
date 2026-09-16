@@ -1,0 +1,15 @@
+{
+  "name": "Pollution Spike Scenario",
+  "description": "Simulates industrial pollution spike spreading across nodes",
+  "target_node": "NODE-02",
+  "duration_steps": 30,
+  "ramp": [
+    {"step": 0,  "smoke_aqi": 30,  "risk_pollution": 18},
+    {"step": 5,  "smoke_aqi": 60,  "risk_pollution": 35},
+    {"step": 10, "smoke_aqi": 95,  "risk_pollution": 58},
+    {"step": 15, "smoke_aqi": 145, "risk_pollution": 76},
+    {"step": 20, "smoke_aqi": 120, "risk_pollution": 65},
+    {"step": 25, "smoke_aqi": 75,  "risk_pollution": 42},
+    {"step": 30, "smoke_aqi": 40,  "risk_pollution": 25}
+  ]
+}
