@@ -1,5 +1,4 @@
-// App.jsx — AegisNet (EcoMonitor) v2.0 Application Shell (Complete Top Navbar, No Sidebar)
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import clsx from 'clsx'
 
@@ -25,13 +24,25 @@ import SettingsPage from './pages/SettingsPage'
 import NodeDetail from './pages/NodeDetail'
 import Login from './pages/Login'
 import LandingPage from './pages/LandingPage'
-import { useAuthStore } from './store/useStore'
+import { useAuthStore, useThemeStore } from './store/useStore'
 
 function AppLayout({ children }) {
   const location = useLocation()
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+  const theme = useThemeStore((s) => s.theme)
   const [cmdOpen, setCmdOpen] = useState(false)
   const [scenarioOpen, setScenarioOpen] = useState(false)
+
+  // Sync theme to root DOM
+  useEffect(() => {
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark')
+      document.body.classList.add('dark')
+    } else {
+      document.documentElement.classList.remove('dark')
+      document.body.classList.remove('dark')
+    }
+  }, [theme])
 
   const isPublicRoute = location.pathname === '/public'
   const isLoginRoute = location.pathname === '/login'
@@ -41,7 +52,7 @@ function AppLayout({ children }) {
   // Standalone pages — completely standalone, no header/footer/overlays
   if (isLoginRoute || isLandingRoute) {
     return (
-      <div className="min-h-screen bg-slate-950 text-slate-100 font-sans">
+      <div className={clsx("min-h-screen font-sans", theme === 'dark' ? "bg-slate-950 text-slate-100" : "bg-slate-50 text-slate-900")}>
         {children}
       </div>
     )
@@ -49,7 +60,7 @@ function AppLayout({ children }) {
 
   return (
     <div className={clsx(
-      'bg-slate-50 text-slate-900 flex flex-col font-sans',
+      'bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 flex flex-col font-sans transition-colors duration-300',
       isMapRoute ? 'h-screen overflow-hidden' : 'min-h-screen'
     )}>
       {/* Complete Top Navbar — Visible on all pages including Map & Public Portal */}
@@ -57,6 +68,7 @@ function AppLayout({ children }) {
         onOpenCommandPalette={() => setCmdOpen(true)}
         onOpenScenarioDrawer={() => setScenarioOpen(true)}
       />
+
 
       {/* Full Width Main Content */}
       <main className={clsx('flex-1 w-full', isMapRoute && 'overflow-hidden flex flex-col')}>

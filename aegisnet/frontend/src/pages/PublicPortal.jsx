@@ -69,32 +69,32 @@ export default function PublicPortal() {
   const currentText = activeAdvisory ? activeAdvisory[language] || activeAdvisory.en : null
 
   return (
-    <div className="text-[#0F172A] font-sans pb-16 animate-slide-up">
+    <div className="text-slate-900 dark:text-slate-100 font-sans pb-16 animate-slide-up">
       {/* ─── Top Citizen Sub-Bar (Below TopHeader) ─────────────────────────── */}
-      <div className="bg-white/95 backdrop-blur-xs border-b border-slate-200 px-4 lg:px-8 py-2.5 flex items-center justify-between shadow-xs">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-emerald-700 text-white flex items-center justify-center font-bold text-base shadow-sm">
+      <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border-b border-slate-200/80 dark:border-slate-800 px-4 lg:px-8 py-3 flex items-center justify-between shadow-xs">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 rounded-2xl bg-gradient-to-r from-blue-600 to-cyan-500 text-white flex items-center justify-center font-bold text-base shadow-sm">
             🌍
           </div>
           <div>
-            <div className="font-bold text-slate-900 text-sm sm:text-base leading-tight">
-              Eco<span className="text-emerald-700">Monitor</span> Citizen Safety
+            <div className="font-bold text-slate-900 dark:text-white text-sm sm:text-base leading-tight">
+              Aegis<span className="bg-gradient-to-r from-blue-600 to-cyan-500 bg-clip-text text-transparent">Net</span> Citizen Safety
             </div>
-            <div className="text-[10px] text-slate-500 font-mono">
+            <div className="text-[10px] text-slate-500 dark:text-slate-400 font-mono">
               GSDMA Public Environmental Network
             </div>
           </div>
         </div>
 
         {/* Right: Language Switcher & Agency Link */}
-        <div className="flex items-center gap-2 sm:gap-3">
+        <div className="flex items-center gap-3">
           {/* Language Switcher */}
-          <div className="flex bg-slate-100 border border-slate-300 rounded-lg p-0.5 text-xs font-medium">
+          <div className="flex bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-full p-1 text-xs font-medium">
             <button
               onClick={() => setLanguage('en')}
               className={clsx(
-                'px-2.5 py-1 rounded transition-colors',
-                language === 'en' ? 'bg-white font-bold text-emerald-700 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                'px-3 py-1 rounded-full transition-all',
+                language === 'en' ? 'bg-gradient-to-r from-blue-600 to-cyan-500 font-bold text-white shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               )}
             >
               English
@@ -102,8 +102,8 @@ export default function PublicPortal() {
             <button
               onClick={() => setLanguage('gu')}
               className={clsx(
-                'px-2.5 py-1 rounded transition-colors',
-                language === 'gu' ? 'bg-white font-bold text-emerald-700 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                'px-3 py-1 rounded-full transition-all',
+                language === 'gu' ? 'bg-gradient-to-r from-blue-600 to-cyan-500 font-bold text-white shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               )}
             >
               ગુજરાતી
@@ -111,8 +111,8 @@ export default function PublicPortal() {
             <button
               onClick={() => setLanguage('hi')}
               className={clsx(
-                'px-2.5 py-1 rounded transition-colors',
-                language === 'hi' ? 'bg-white font-bold text-emerald-700 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                'px-3 py-1 rounded-full transition-all',
+                language === 'hi' ? 'bg-gradient-to-r from-blue-600 to-cyan-500 font-bold text-white shadow-xs' : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
               )}
             >
               हिन्दी
@@ -121,36 +121,35 @@ export default function PublicPortal() {
 
           <Link
             to="/dashboard"
-            className="hidden sm:inline-block text-xs font-mono font-semibold text-emerald-700 hover:underline"
+            className="hidden sm:inline-block text-xs font-mono font-semibold text-blue-600 dark:text-cyan-400 hover:underline"
           >
             ← Command Center
           </Link>
         </div>
       </div>
 
-
       {/* ─── Main Content Container ─────────────────────────────────────── */}
       <main className="max-w-3xl mx-auto px-4 py-8 space-y-6">
         {/* Portal Introduction Banner */}
         <div className="text-center space-y-2">
-          <h1 className="text-2xl sm:text-3xl font-bold text-[#0F172A] tracking-tight">
+          <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 dark:text-white tracking-tight">
             {t.portalTitle}
           </h1>
-          <p className="text-xs sm:text-sm text-[#475569] max-w-xl mx-auto">
+          <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 max-w-xl mx-auto">
             {t.subtitle}
           </p>
 
           {/* Region Picker for Citizen */}
           <div className="pt-2 flex justify-center">
-            <div className="inline-flex items-center gap-2 bg-white border border-[#CBD5E1] rounded-xl px-3 py-1.5 shadow-xs text-xs font-mono">
-              <span>📍 Your Zone:</span>
+            <div className="inline-flex items-center gap-2 bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-slate-200/80 dark:border-slate-800 rounded-full px-4 py-2 shadow-xs text-xs font-mono">
+              <span className="text-slate-500 dark:text-slate-400">📍 Your Zone:</span>
               <select
                 value={selectedZone}
                 onChange={(e) => setSelectedZone(e.target.value)}
-                className="font-bold text-[#0F172A] bg-transparent focus:outline-none cursor-pointer"
+                className="font-bold text-blue-600 dark:text-cyan-400 bg-transparent focus:outline-none cursor-pointer"
               >
                 {REGIONS.filter((r) => r.id !== 'all').map((r) => (
-                  <option key={r.id} value={r.id}>
+                  <option key={r.id} value={r.id} className="dark:bg-slate-900">
                     {r.name}
                   </option>
                 ))}
@@ -161,42 +160,42 @@ export default function PublicPortal() {
 
         {/* ─── Big High-Contrast Status Banner ──────────────────────────── */}
         {activeAdvisory ? (
-          <div className="bg-[#FFFBEB] border-2 border-[#B58900] rounded-2xl p-6 shadow-sm space-y-3">
+          <div className="bg-amber-500/10 border-2 border-amber-500/30 dark:border-amber-500/40 rounded-3xl p-6 shadow-sm space-y-3.5 backdrop-blur-md">
             <div className="flex items-center justify-between gap-2 flex-wrap">
               <div className="flex items-center gap-2">
-                <span className="w-3 h-3 rounded-full bg-[#B58900] animate-ping" />
-                <span className="text-xs font-mono font-bold uppercase text-[#B58900] tracking-wider">
+                <span className="w-3 h-3 rounded-full bg-amber-500 animate-ping" />
+                <span className="text-xs font-mono font-bold uppercase text-amber-600 dark:text-amber-400 tracking-wider">
                   {t.statusWarning}
                 </span>
               </div>
-              <span className="text-[11px] font-mono text-[#475569] bg-white border border-[#CBD5E1] px-2 py-0.5 rounded-full">
+              <span className="text-[11px] font-mono text-slate-600 dark:text-slate-300 bg-white/80 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 px-3 py-1 rounded-full">
                 {t.verifiedBadge}
               </span>
             </div>
 
             <div className="space-y-1">
-              <h2 className="text-lg sm:text-xl font-bold text-[#0F172A]">
+              <h2 className="text-lg sm:text-xl font-bold text-slate-900 dark:text-white">
                 {currentText?.title || activeAdvisory.en.title}
               </h2>
-              <p className="text-xs font-mono text-[#475569]">
-                📍 Zone: <b className="text-[#0F172A]">{activeAdvisory.zone}</b> · Published {activeAdvisory.published_at}
+              <p className="text-xs font-mono text-slate-500 dark:text-slate-400">
+                📍 Zone: <b className="text-slate-800 dark:text-slate-200">{activeAdvisory.zone}</b> · Published {activeAdvisory.published_at}
               </p>
             </div>
 
-            <p className="text-sm text-[#0F172A] leading-relaxed bg-white/70 p-3.5 rounded-xl border border-[#CBD5E1]">
+            <p className="text-sm text-slate-800 dark:text-slate-200 leading-relaxed bg-white/60 dark:bg-slate-900/60 p-4 rounded-2xl border border-amber-500/20">
               {currentText?.message || activeAdvisory.en.message}
             </p>
           </div>
         ) : (
-          <div className="bg-[#E8F5E9] border-2 border-[#2E7D32] rounded-2xl p-6 shadow-sm flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-[#2E7D32] text-white flex items-center justify-center text-2xl font-bold">
+          <div className="bg-emerald-500/10 border-2 border-emerald-500/30 rounded-3xl p-6 shadow-sm flex items-center gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-emerald-600 text-white flex items-center justify-center text-2xl font-bold flex-shrink-0">
               ✓
             </div>
             <div>
-              <div className="text-sm font-bold text-[#2E7D32] uppercase font-mono">
+              <div className="text-sm font-bold text-emerald-600 dark:text-emerald-400 uppercase font-mono">
                 {t.statusNormal}
               </div>
-              <p className="text-xs text-[#475569] mt-0.5">
+              <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
                 All hydrological levels, forest thermal arrays, and industrial air monitors are operating within safe seasonal limits.
               </p>
             </div>
@@ -204,56 +203,56 @@ export default function PublicPortal() {
         )}
 
         {/* ─── "What Should I Do Right Now?" Action Card ─────────────────── */}
-        <div className="bg-white border border-[#E3E8EF] rounded-2xl p-5 shadow-sm space-y-3">
-          <h3 className="font-bold text-sm text-[#0F172A] flex items-center gap-2">
+        <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 shadow-sm space-y-4">
+          <h3 className="font-bold text-sm text-slate-900 dark:text-white flex items-center gap-2">
             <span>🛡️</span> {t.whatShouldIDo}
           </h3>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-            <div className="bg-[#F7F9FB] border border-[#E3E8EF] p-3 rounded-xl space-y-1">
-              <div className="font-bold text-[#0B6E4F]">1. Immediate Health & Shelter</div>
-              <p className="text-[#475569]">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 text-xs">
+            <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 p-4 rounded-2xl space-y-1">
+              <div className="font-bold text-blue-600 dark:text-cyan-400">1. Immediate Health & Shelter</div>
+              <p className="text-slate-600 dark:text-slate-300">
                 {currentText?.action || 'Keep residential windows closed during industrial thermal inversions.'}
               </p>
             </div>
 
-            <div className="bg-[#F7F9FB] border border-[#E3E8EF] p-3 rounded-xl space-y-1">
-              <div className="font-bold text-[#0B6E4F]">2. Emergency Contacts</div>
-              <p className="text-[#475569]">
-                Dial <b>101</b> for Fire, <b>108</b> for Medical EMS, or <b>1077</b> for GSDMA State Disaster Control.
+            <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/60 p-4 rounded-2xl space-y-1">
+              <div className="font-bold text-blue-600 dark:text-cyan-400">2. Emergency Contacts</div>
+              <p className="text-slate-600 dark:text-slate-300">
+                Dial <b className="text-slate-900 dark:text-white">101</b> for Fire, <b className="text-slate-900 dark:text-white">108</b> for Medical EMS, or <b className="text-slate-900 dark:text-white">1077</b> for GSDMA State Disaster Control.
               </p>
             </div>
           </div>
         </div>
 
         {/* ─── Free SMS Alerts Subscription Form ─────────────────────────── */}
-        <div className="bg-white border border-[#E3E8EF] rounded-2xl p-6 shadow-sm space-y-3">
+        <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md border border-slate-200/80 dark:border-slate-800 rounded-3xl p-6 shadow-sm space-y-4">
           <div>
-            <h3 className="font-bold text-base text-[#0F172A] flex items-center gap-2">
+            <h3 className="font-bold text-base text-slate-900 dark:text-white flex items-center gap-2">
               <span>📱</span> {t.subscribeTitle}
             </h3>
-            <p className="text-xs text-[#475569] mt-0.5">
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
               {t.subscribeDesc}
             </p>
           </div>
 
-          <form onSubmit={handleSubscribe} className="flex flex-col sm:flex-row gap-2.5">
+          <form onSubmit={handleSubscribe} className="flex flex-col sm:flex-row gap-3">
             <input
               type="tel"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               placeholder="+91 98765 43210"
               required
-              className="flex-1 bg-[#F7F9FB] border border-[#CBD5E1] rounded-xl px-3.5 py-2.5 text-xs text-[#0F172A] focus:outline-none focus:border-[#0B6E4F]"
+              className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-full px-4 py-3 text-xs text-slate-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500/40"
             />
             <button
               type="submit"
-              className="bg-[#0B6E4F] hover:bg-[#08573F] text-white font-bold px-5 py-2.5 rounded-xl text-xs transition-colors shadow-xs"
+              className="bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white font-bold px-6 py-3 rounded-full text-xs transition-all shadow-md shadow-blue-500/20 whitespace-nowrap"
             >
               {subscribed ? '✓ Subscribed Successfully!' : t.subscribeBtn}
             </button>
           </form>
-          <p className="text-[10px] text-[#94A3B8] font-mono">
+          <p className="text-[10px] text-slate-400 dark:text-slate-500 font-mono">
             Zero spam. Powered directly by Gujarat State Disaster Management Authority emergency gateway.
           </p>
         </div>

@@ -1038,3 +1038,46 @@ export const useAuthStore = create((set) => ({
     set({ user: null, token: null, isAuthenticated: false })
   },
 }))
+
+// ─── Theme Store ─────────────────────────────────────────────────────────────
+const getInitialTheme = () => {
+  if (typeof window !== 'undefined') {
+    const saved = localStorage.getItem('aegisnet_theme')
+    if (saved) return saved
+  }
+  return 'light'
+}
+
+export const useThemeStore = create((set) => ({
+  theme: getInitialTheme(),
+  setTheme: (theme) => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('aegisnet_theme', theme)
+      if (theme === 'dark') {
+        document.documentElement.classList.add('dark')
+        document.body.classList.add('dark')
+      } else {
+        document.documentElement.classList.remove('dark')
+        document.body.classList.remove('dark')
+      }
+    }
+    set({ theme })
+  },
+  toggleTheme: () => {
+    set((state) => {
+      const nextTheme = state.theme === 'dark' ? 'light' : 'dark'
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('aegisnet_theme', nextTheme)
+        if (nextTheme === 'dark') {
+          document.documentElement.classList.add('dark')
+          document.body.classList.add('dark')
+        } else {
+          document.documentElement.classList.remove('dark')
+          document.body.classList.remove('dark')
+        }
+      }
+      return { theme: nextTheme }
+    })
+  }
+}))
+
