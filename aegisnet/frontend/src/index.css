@@ -1,112 +1,94 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  /* Brand / UI Base */
-  --primary-forest: #14532D;
-  --deep-forest: #0B3820;
-  --amber-accent: #D97706;
-  --bg-light: #F5F4F0;
-  --bg-dark: #141A16;
-  --surface-light: #FFFFFF;
-  --surface-dark: #1F2921;
-  --border-dark: #2D3B2F;
-  --text-primary-dark: #EDEDE9;
-  --text-muted: #6B7280;
-
-  /* Risk Status (Locked everywhere) */
-  --risk-safe: #22C55E;
-  --risk-watch: #F59E0B;
-  --risk-danger: #EF4444;
-  --risk-offline: #9CA3AF;
-
-  /* Hazard-Type Accents */
-  --hazard-flood: #0D9488;
-  --hazard-fire: #F97316;
-  --hazard-pollution: #8B5CF6;
-}
-
 body {
-  background-color: var(--bg-dark);
-  color: var(--text-primary-dark);
-  font-family: 'Inter', system-ui, sans-serif;
+  background: linear-gradient(135deg, #F0F4F8 0%, #F8FAFC 40%, #EEF2F6 100%);
+  background-attachment: fixed;
+  color: #0F172A;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Custom scrollbar with forest earthy tones */
-::-webkit-scrollbar { width: 6px; }
-::-webkit-scrollbar-track { background: #141A16; }
-::-webkit-scrollbar-thumb { background: #2D3B2F; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #14532D; }
+/* Accessible focus ring */
+*:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px #FFFFFF, 0 0 0 4px #0B6E4F;
+}
 
-/* Map styling: earthy slate/forest container */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Premium card shadow scale */
+.card-shadow {
+  box-shadow: 0 1px 3px rgba(15,23,42,0.06), 0 4px 12px rgba(15,23,42,0.04);
+}
+.card-shadow-md {
+  box-shadow: 0 2px 8px rgba(15,23,42,0.08), 0 8px 24px rgba(15,23,42,0.05);
+}
+.card-shadow-lg {
+  box-shadow: 0 4px 16px rgba(15,23,42,0.10), 0 16px 40px rgba(15,23,42,0.06);
+}
+
+/* Page fade-in */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in {
+  animation: fade-in 0.18s ease-out;
+}
+
+/* Page slide-up for content areas */
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-slide-up {
+  animation: slide-up 0.25s ease-out;
+}
+
+/* Light high-contrast scrollbar */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #CBD5E1;
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94A3B8;
+}
+
+/* Map container styling */
 .leaflet-container {
-  background: #141A16 !important;
+  background: #E2E8F0 !important;
   font-family: 'Inter', sans-serif !important;
 }
 
-/* Map popup styling */
 .leaflet-popup-content-wrapper {
-  background: #1F2921 !important;
-  color: #EDEDE9 !important;
-  border: 1px solid #2D3B2F !important;
-  border-radius: 0.75rem !important;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.6) !important;
+  background: #FFFFFF !important;
+  color: #0F172A !important;
+  border: 1px solid #E2E8F0 !important;
+  border-radius: 12px !important;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.12) !important;
 }
 
 .leaflet-popup-tip {
-  background: #1F2921 !important;
+  background: #FFFFFF !important;
 }
 
-/* Subtle risk pulse */
-@keyframes risk-pulse {
-  0%, 100% { opacity: 1; transform: scale(1); }
-  50% { opacity: 0.75; transform: scale(1.05); }
-}
-.risk-pulse { animation: risk-pulse 1.8s ease-in-out infinite; }
-
-/* ─── Smooth Pull-Down & Scroll-Down Accordion Animations ─────────────────── */
-.pulldown-wrapper {
-  display: grid;
-  grid-template-rows: 0fr;
-  transition: grid-template-rows 380ms cubic-bezier(0.16, 1, 0.3, 1), opacity 320ms ease;
-  opacity: 0;
-}
-
-.pulldown-wrapper.open {
-  grid-template-rows: 1fr;
-  opacity: 1;
-}
-
-.pulldown-content {
-  overflow: hidden;
-}
-
-@keyframes pullDownSlide {
-  0% {
-    opacity: 0;
-    transform: translateY(-12px);
-  }
-  100% {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-.animate-pulldown {
-  animation: pullDownSlide 380ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
-
-/* Smooth Chevron / Arrow Indicator */
-.pulldown-chevron {
-  display: inline-block;
-  transition: transform 320ms cubic-bezier(0.34, 1.56, 0.64, 1);
-  transform-origin: center;
-}
-
-.pulldown-chevron.open {
-  transform: rotate(180deg);
-}

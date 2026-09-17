@@ -6,47 +6,18 @@ export default {
   ],
   theme: {
     extend: {
-      colors: {
-        forest: {
-          DEFAULT: '#14532D',
-          deep:    '#0B3820',
-          light:   '#1e6b3b',
-        },
-        amber: {
-          accent:  '#D97706',
-          watch:   '#F59E0B',
-        },
-        risk: {
-          safe:    '#22C55E',
-          watch:   '#F59E0B',
-          danger:  '#EF4444',
-          offline: '#9CA3AF',
-        },
-        hazard: {
-          flood:     '#0D9488', // Teal — reads as water without being blue
-          fire:      '#F97316', // Orange
-          pollution: '#8B5CF6', // Violet
-        },
-        aegis: {
-          forest:  '#14532D',
-          deep:    '#0B3820',
-          amber:   '#D97706',
-          dark:    '#141A16', // Base page dark
-          card:    '#1F2921', // Card surface dark
-          border:  '#2D3B2F', // Subtle earthy border
-          light:   '#F5F4F0',
-          text:    '#EDEDE9',
-          muted:   '#6B7280',
-          teal:    '#0D9488',
-          green:   '#22C55E',
-          orange:  '#F97316',
-          red:     '#EF4444',
-          blue:    '#0D9488', // Aliased to teal to eliminate generic tech-blue
-        }
+      borderRadius: {
+        control: '6px',
+        card: '12px',
+        full: '9999px',
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
-        mono: ['JetBrains Mono', 'monospace'],
+        sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
+        mono: ['JetBrains Mono', 'IBM Plex Mono', 'ui-monospace', 'monospace'],
+      },
+      boxShadow: {
+        'card': '0 1px 3px 0 rgba(15, 23, 42, 0.08), 0 1px 2px 0 rgba(15, 23, 42, 0.04)',
+        'dropdown': '0 10px 25px -5px rgba(15, 23, 42, 0.15), 0 4px 6px -2px rgba(15, 23, 42, 0.05)',
       }
     },
   },

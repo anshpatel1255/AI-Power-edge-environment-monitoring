@@ -1,263 +1,196 @@
-// pages/AnalysisPage.jsx — AI Data Analysis with Clean Overview & Pull-Down Telemetry Curves
-
+// pages/AnalysisPage.jsx — AI Edge-Correlation Pipeline & Explainability Engine
 import { useState } from 'react'
 import { useStore } from '../store/useStore'
 import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
-  ResponsiveContainer, AreaChart, Area
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts'
-import clsx from 'clsx'
 
-const MOCK_TEMP_DATA = [
-  { time: '00:00', temp: 24.2 },
-  { time: '04:00', temp: 23.8 },
-  { time: '08:00', temp: 26.5 },
-  { time: '12:00', temp: 31.8 },
-  { time: '16:00', temp: 34.2 },
-  { time: '20:00', temp: 29.5 },
-  { time: 'Now',   temp: 28.4 },
-]
-
-const MOCK_AQI_DATA = [
-  { time: '00:00', aqi: 28 },
-  { time: '04:00', aqi: 24 },
-  { time: '08:00', aqi: 45 },
-  { time: '12:00', aqi: 78 },
-  { time: '16:00', aqi: 112 },
-  { time: '20:00', aqi: 62 },
-  { time: 'Now',   aqi: 34 },
-]
-
-const MOCK_WATER_DATA = [
-  { time: '00:00', level: 0.22 },
-  { time: '04:00', level: 0.24 },
-  { time: '08:00', level: 0.28 },
-  { time: '12:00', level: 0.45 },
-  { time: '16:00', level: 0.72 },
-  { time: '20:00', level: 0.55 },
-  { time: 'Now',   level: 0.38 },
+const FORECAST_DATA = [
+  { hour: 'Now', actual: 48, forecastUpper: 48, forecastLower: 48 },
+  { hour: '+30m', actual: null, forecastUpper: 54, forecastLower: 50 },
+  { hour: '+1h',  actual: null, forecastUpper: 62, forecastLower: 55 },
+  { hour: '+1.5h',actual: null, forecastUpper: 72, forecastLower: 62 },
+  { hour: '+2h',  actual: null, forecastUpper: 84, forecastLower: 70 },
 ]
 
 export default function AnalysisPage() {
+  const suppressionLog = useStore((s) => s.suppressionLog)
   const activeScenario = useStore((s) => s.activeScenario)
 
-  // ─── Collapsible Pull-Down Toggles ──────────────────────────────────────────
-  const [showCharts, setShowCharts] = useState(false)
-  const [showHazardBreakdown, setShowHazardBreakdown] = useState(false)
-
-  const isSurge = activeScenario === 'fire' || activeScenario === 'flood' || activeScenario === 'pollution'
-  const currentRiskLevel = isSurge ? 'Critical 🔴' : 'Normal 🟢'
-
-  const forecastPoints = [1, 2, 3, 4, 5, 6].map((hour) => {
-    let floodScore = isSurge && activeScenario === 'flood' ? Math.min(100, 85 + hour * 2.5) : 25 + hour * 1.5
-    let fireScore = isSurge && activeScenario === 'fire' ? Math.min(100, 88 + hour * 2.0) : 18 + hour * 0.8
-    let aqiScore = isSurge && activeScenario === 'pollution' ? Math.min(100, 82 + hour * 3.0) : 28 + hour * 1.2
-
-    return {
-      hour: `+${hour}h`,
-      flood: Math.round(floodScore),
-      fire: Math.round(fireScore),
-      pollution: Math.round(aqiScore),
-    }
-  })
-
   return (
-    <div className="max-w-7xl mx-auto px-4 py-5 bg-[#141A16] text-[#EDEDE9] space-y-5 font-mono">
-      {/* ─── 1. Header Strip ─────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#1F2921] border border-[#2D3B2F] px-5 py-3.5 rounded-2xl shadow-sm">
-        <div className="flex items-center gap-2.5">
-          <span className="text-2xl">📊</span>
+    <div className="max-w-7xl mx-auto px-4 lg:px-6 py-6 space-y-6 font-sans">
+      {/* ─── Header Strip ─────────────────────────────────────────────── */}
+      <div className="bg-white border border-[#CBD5E1] rounded-2xl p-5 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-11 h-11 rounded-xl bg-[#EEF2F6] text-[#6B4FA0] flex items-center justify-center text-2xl font-bold">
+            🧠
+          </div>
           <div>
-            <h1 className="text-xl font-bold text-[#EDEDE9]">
-              AI Environmental <span className="text-[#D97706]">Analysis</span>
+            <h1 className="text-xl font-bold text-[#0F172A]">
+              AI Environmental <span className="text-[#0B6E4F]">Analysis & Explainability</span>
             </h1>
-            <p className="text-[11px] text-[#6B7280]">
-              TensorFlow Lite Micro Edge Scoring & Multi-Hop Risk Trajectory
+            <p className="text-xs text-[#475569] font-mono">
+              Qualcomm Edge-AI Sensor Fusion, Cross-Node Spatial Reinforcement, & False-Alarm Suppression
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="bg-[#141A16] border border-[#2D3B2F] px-3 py-1.5 rounded-xl text-xs">
-            <span className="text-[#6B7280]">Confidence:</span> <b className="text-[#22C55E]">89.4% (R²)</b>
+        <div className="flex items-center gap-3 text-xs font-mono">
+          <div className="bg-[#F7F9FB] border border-[#CBD5E1] px-3 py-1.5 rounded-xl">
+            <span className="text-[#475569]">Model Engine:</span>{' '}
+            <b className="text-[#0B6E4F]">QNN TFLite v2.4</b>
           </div>
-          <div className="bg-[#141A16] border border-[#2D3B2F] px-3 py-1.5 rounded-xl text-xs">
-            <span className="text-[#6B7280]">Advance Alert:</span> <b className="text-[#D97706]">+42 min</b>
+          <div className="bg-[#F7F9FB] border border-[#CBD5E1] px-3 py-1.5 rounded-xl">
+            <span className="text-[#475569]">Statistical Confidence:</span>{' '}
+            <b className="text-[#0B6E4F]">89.4% (R²)</b>
           </div>
         </div>
       </div>
 
-      {/* ─── 2. AI Risk Prediction Overview ──────────────────────────────── */}
-      <div className="bg-[#1F2921] border border-[#2D3B2F] rounded-2xl p-4 shadow-sm space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-bold text-[#EDEDE9] uppercase tracking-wide">
-              🤖 Predictive Risk Trajectory (Next 1–6 Hours)
+      {/* ─── 1. Model Confidence Explainer (Feature Weights) ───────────── */}
+      <div className="bg-white border border-[#E3E8EF] rounded-2xl p-6 shadow-sm space-y-4">
+        <div className="flex items-center justify-between border-b border-[#E3E8EF] pb-3">
+          <div>
+            <h2 className="text-sm font-bold text-[#0F172A] uppercase font-mono tracking-wide">
+              Feature Weight Deconstruction (Why Did the Alert Fire?)
+            </h2>
+            <p className="text-xs text-[#475569]">
+              Multi-channel on-device inference breakdown for Active Incident ALT-101
+            </p>
+          </div>
+          <span className="text-xs font-mono font-bold text-[#0B6E4F] bg-[#E8F5E9] px-2.5 py-1 rounded-lg">
+            Fused Score: 0.89 Fused Risk
+          </span>
+        </div>
+
+        <div className="space-y-3 text-xs">
+          {[
+            { feature: 'Instantaneous Water Rate of Change (ΔW/dt)', weight: '+0.34', pct: 85, color: '#0B84C9', desc: 'Rising +22 cm/min acceleration detected across 8-sample rolling FIFO window.' },
+            { feature: 'Upstream Sensor Correlation (NODE-01 to NODE-02)', weight: '+0.28', pct: 72, color: '#0B6E4F', desc: 'Spatial distance decay confirmed neighbor surge 6.4 km upstream.' },
+            { feature: 'Rain Gauge Precipitation Ingress', weight: '+0.18', pct: 45, color: '#0B84C9', desc: 'Tipping bucket recorded continuous 38 mm/hr catchment rainfall.' },
+            { feature: 'Optical Smoke / Flare Inversion', weight: '+0.09', pct: 25, color: '#E0621A', desc: 'Background baseline normal; negligible contribution.' },
+          ].map((item, idx) => (
+            <div key={idx} className="bg-[#F7F9FB] border border-[#CBD5E1] p-3 rounded-xl space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-[#0F172A]">{item.feature}</span>
+                <span className="font-mono font-bold text-[#0F172A]">{item.weight} Contribution</span>
+              </div>
+              <div className="w-full bg-[#E3E8EF] h-2 rounded-full overflow-hidden">
+                <div className="h-full rounded-full" style={{ width: `${item.pct}%`, backgroundColor: item.color }} />
+              </div>
+              <div className="text-[11px] text-[#475569]">{item.desc}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* ─── 2. Cross-Node Correlation Graph & Short-Term Forecast ───────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Node-Link Spatial Correlation Visual */}
+        <div className="lg:col-span-6 bg-white border border-[#E3E8EF] rounded-2xl p-5 shadow-sm space-y-3">
+          <div className="border-b border-[#E3E8EF] pb-3">
+            <h3 className="font-bold text-sm text-[#0F172A] font-mono uppercase">
+              Cross-Node Spatial Reinforcement
+            </h3>
+            <p className="text-xs text-[#475569]">
+              How upstream telemetry reinforces downstream alerts before local crest
+            </p>
+          </div>
+
+          <div className="bg-[#F7F9FB] border border-[#CBD5E1] rounded-xl p-4 text-xs font-mono space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-[#0B84C9]">NODE-01 (Upstream Dam)</span>
+              <span className="text-[#2E7D32] font-bold">Surge Detected (T = 0)</span>
+            </div>
+            <div className="text-center text-[#94A3B8] font-bold">
+              ↓ Spatial Propagation: 4.8 km distance decay (22 min fluid transit lag) ↓
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-[#0B6E4F]">NODE-02 (Canal Siphon)</span>
+              <span className="text-[#E0621A] font-bold">Reinforced Early Warning (+42 min lead)</span>
+            </div>
+            <div className="text-center text-[#94A3B8] font-bold">
+              ↓ Multi-Hop LoRa Mesh Relay (Zero Cloud WAN Dependency) ↓
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-[#C62828]">NODE-06 (Vasna Barrage Downstream)</span>
+              <span className="text-[#C62828] font-bold">Gates Prepared Before Surge Arrival</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Short-Term Projected Trajectory */}
+        <div className="lg:col-span-6 bg-white border border-[#E3E8EF] rounded-2xl p-5 shadow-sm space-y-3">
+          <div className="border-b border-[#E3E8EF] pb-3 flex items-center justify-between">
+            <div>
+              <h3 className="font-bold text-sm text-[#0F172A] font-mono uppercase">
+                2-Hour Ahead Predictive Trajectory
+              </h3>
+              <p className="text-xs text-[#475569]">
+                Forward-looking projected depth with statistical uncertainty bands
+              </p>
+            </div>
+            <span className="text-[11px] font-mono text-[#0B84C9] font-bold bg-[#E8F5E9] px-2 py-0.5 rounded">
+              Confidence: ±4 cm
             </span>
-            <span className="text-xs text-[#6B7280]">Status: <b className="text-[#EDEDE9]">{currentRiskLevel}</b></span>
           </div>
 
-          <div className="text-[11px] text-[#D97706]">
-            Early rate-of-rise inference active
-          </div>
-        </div>
-
-        {/* Prediction Bar Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
-          {forecastPoints.map((pt) => {
-            const peakHazard = Math.max(pt.flood, pt.fire, pt.pollution)
-            const hazardColor = peakHazard >= 70 ? 'bg-[#EF4444]' : peakHazard >= 40 ? 'bg-[#F59E0B]' : 'bg-[#22C55E]'
-
-            return (
-              <div key={pt.hour} className="bg-[#141A16] border border-[#2D3B2F] rounded-xl p-2.5 text-center">
-                <div className="text-xs font-bold text-[#D97706] mb-0.5">{pt.hour} Projected</div>
-                <div className="text-lg font-bold text-[#EDEDE9] mb-1.5">{peakHazard} / 100</div>
-                <div className="w-full bg-[#1F2921] rounded-full h-1.5 overflow-hidden border border-[#2D3B2F]">
-                  <div className={clsx('h-full rounded-full transition-all', hazardColor)} style={{ width: `${peakHazard}%` }} />
-                </div>
-                <div className="text-[10px] text-[#6B7280] mt-1 flex justify-between">
-                  <span>🌊 {pt.flood}</span>
-                  <span>🔥 {pt.fire}</span>
-                  <span>☁️ {pt.pollution}</span>
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      </div>
-
-      {/* ─── 3. Telemetry Curves Section with Pull-Down Toggle ───────────── */}
-      <div className="bg-[#1F2921] border border-[#2D3B2F] rounded-2xl p-4 shadow-sm space-y-3">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-sm font-bold text-[#EDEDE9] uppercase tracking-wide">
-              24-Hour Telemetry Progression Curves
-            </h2>
-            <p className="text-[11px] text-[#6B7280]">Temperature, AQI, and Water-level time-series</p>
-          </div>
-
-          <button
-            onClick={() => setShowCharts(!showCharts)}
-            className="text-xs text-[#D97706] hover:text-white font-mono flex items-center gap-1.5 transition-colors px-2.5 py-1 rounded hover:bg-[#141A16]"
-          >
-            <span>{showCharts ? 'Hide Trend Graphs' : 'Pull Down 24h Trend Graphs'}</span>
-            <span className={clsx('pulldown-chevron text-[10px]', showCharts && 'open')}>▼</span>
-          </button>
-        </div>
-
-        {/* Pull-Down Charts Content with Smooth Animation */}
-        <div className={clsx('pulldown-wrapper', showCharts && 'open')}>
-          <div className="pulldown-content">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 pt-3 border-t border-[#2D3B2F] animate-pulldown">
-              {/* 1. Temp */}
-              <div className="bg-[#141A16] border border-[#2D3B2F] rounded-xl p-3.5">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-xs font-bold text-[#D97706]">📈 Temperature (°C)</span>
-                  <span className="text-xs font-bold text-[#D97706]">28.4°C</span>
-                </div>
-                <div className="h-44">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={MOCK_TEMP_DATA}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#2D3B2F" />
-                      <XAxis dataKey="time" stroke="#6B7280" fontSize={10} />
-                      <YAxis stroke="#6B7280" fontSize={10} domain={['dataMin - 2', 'dataMax + 2']} />
-                      <Tooltip contentStyle={{ backgroundColor: '#1F2921', borderColor: '#2D3B2F', color: '#EDEDE9', fontSize: 11 }} />
-                      <Area type="monotone" dataKey="temp" stroke="#D97706" fill="#D97706" fillOpacity={0.2} strokeWidth={2} />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-
-              {/* 2. AQI */}
-              <div className="bg-[#141A16] border border-[#2D3B2F] rounded-xl p-3.5">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-xs font-bold text-[#8B5CF6]">📈 AQI Pollution Index</span>
-                  <span className="text-xs font-bold text-[#8B5CF6]">34 AQI</span>
-                </div>
-                <div className="h-44">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={MOCK_AQI_DATA}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#2D3B2F" />
-                      <XAxis dataKey="time" stroke="#6B7280" fontSize={10} />
-                      <YAxis stroke="#6B7280" fontSize={10} />
-                      <Tooltip contentStyle={{ backgroundColor: '#1F2921', borderColor: '#2D3B2F', color: '#EDEDE9', fontSize: 11 }} />
-                      <Area type="monotone" dataKey="aqi" stroke="#8B5CF6" fill="#8B5CF6" fillOpacity={0.2} strokeWidth={2} />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-
-              {/* 3. Water */}
-              <div className="bg-[#141A16] border border-[#2D3B2F] rounded-xl p-3.5">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-xs font-bold text-[#0D9488]">📈 Water Level (m)</span>
-                  <span className="text-xs font-bold text-[#0D9488]">0.38 m</span>
-                </div>
-                <div className="h-44">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={MOCK_WATER_DATA}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#2D3B2F" />
-                      <XAxis dataKey="time" stroke="#6B7280" fontSize={10} />
-                      <YAxis stroke="#6B7280" fontSize={10} />
-                      <Tooltip contentStyle={{ backgroundColor: '#1F2921', borderColor: '#2D3B2F', color: '#EDEDE9', fontSize: 11 }} />
-                      <Area type="monotone" dataKey="level" stroke="#0D9488" fill="#0D9488" fillOpacity={0.2} strokeWidth={2} />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
-              </div>
-            </div>
+          <div className="h-48">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={FORECAST_DATA}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#EEF2F6" />
+                <XAxis dataKey="hour" stroke="#94A3B8" fontSize={11} fontStyle="italic" />
+                <YAxis stroke="#94A3B8" fontSize={11} domain={[40, 90]} />
+                <Tooltip contentStyle={{ backgroundColor: '#FFFFFF', borderColor: '#E3E8EF', borderRadius: 8, fontSize: 11 }} />
+                <Line type="monotone" dataKey="forecastUpper" stroke="#C62828" strokeWidth={2} strokeDasharray="4 4" name="Projected Upper Crest (cm)" />
+                <Line type="monotone" dataKey="forecastLower" stroke="#0B84C9" strokeWidth={2} name="Conservative Trajectory (cm)" />
+              </LineChart>
+            </ResponsiveContainer>
           </div>
         </div>
       </div>
 
-      {/* ─── 4. Hazard Risk Physics Breakdown with Pull-Down Toggle ──────── */}
-      <div className="bg-[#1F2921] border border-[#2D3B2F] rounded-2xl p-4 shadow-sm space-y-3">
-        <div className="flex items-center justify-between">
+      {/* ─── 3. False-Positive Edge Model Suppression Log ───────────────── */}
+      <div className="bg-white border border-[#E3E8EF] rounded-2xl p-6 shadow-sm space-y-4">
+        <div className="flex items-center justify-between border-b border-[#E3E8EF] pb-3">
           <div>
-            <h2 className="text-sm font-bold text-[#EDEDE9] uppercase tracking-wide">
-              Hazard Physics & Algorithmic Models
-            </h2>
-            <p className="text-[11px] text-[#6B7280]">Edge rate-of-change formulas for Flood, Fire & Chemical AQI</p>
+            <h3 className="font-bold text-sm text-[#0F172A] uppercase font-mono flex items-center gap-2">
+              <span>🛡️</span> False-Positive Suppression Log (Proves AI Over Fixed Thresholds)
+            </h3>
+            <p className="text-xs text-[#475569]">
+              Transient sensor anomalies classified as non-emergencies by the on-device model, preventing alert fatigue
+            </p>
           </div>
-
-          <button
-            onClick={() => setShowHazardBreakdown(!showHazardBreakdown)}
-            className="text-xs text-[#D97706] hover:text-white font-mono flex items-center gap-1.5 transition-colors px-2.5 py-1 rounded hover:bg-[#141A16]"
-          >
-            <span>{showHazardBreakdown ? 'Hide Physics Breakdown' : 'Pull Down Physics & Logic'}</span>
-            <span className={clsx('pulldown-chevron text-[10px]', showHazardBreakdown && 'open')}>▼</span>
-          </button>
+          <span className="text-xs font-mono font-bold text-[#2E7D32] bg-[#E8F5E9] px-2.5 py-1 rounded-lg">
+            Zero False Dispatches
+          </span>
         </div>
 
-        {/* Pull-Down Content with Smooth Grid Accordion */}
-        <div className={clsx('pulldown-wrapper', showHazardBreakdown && 'open')}>
-          <div className="pulldown-content">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 pt-3 border-t border-[#2D3B2F] animate-pulldown text-xs">
-              <div className="bg-[#141A16] border border-[#2D3B2F] rounded-xl p-3 space-y-1.5">
-                <div className="text-[#0D9488] font-bold">🌊 Flood: Ultrasonic Rise Velocity</div>
-                <p className="text-[#6B7280] text-[11px] font-sans">
-                  Tracks delta cm/min. If d(water)/dt &gt; +3.0 cm/min, early warning triggers before static floodwall height.
-                </p>
-                <div className="text-[10px] text-[#22C55E]">Govt Dispatch: Flood Relief & NDRF</div>
+        <div className="space-y-3">
+          {suppressionLog.map((sup) => (
+            <div
+              key={sup.id}
+              className="bg-[#F7F9FB] border border-[#CBD5E1] rounded-xl p-4 text-xs space-y-1.5 transition-all hover:bg-white"
+            >
+              <div className="flex items-center justify-between font-mono">
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-[#0F172A]">{sup.node_id}</span>
+                  <span className="text-[#475569]">({sup.sensor})</span>
+                  <span className="bg-[#FFFBEB] text-[#B58900] px-2 py-0.2 rounded font-bold">
+                    Spike: {sup.spike_val}
+                  </span>
+                </div>
+                <span className="text-[11px] text-[#94A3B8]">{sup.time}</span>
               </div>
 
-              <div className="bg-[#141A16] border border-[#2D3B2F] rounded-xl p-3 space-y-1.5">
-                <div className="text-[#F97316] font-bold">🔥 Fire: IR Flame + Thermal Gradient</div>
-                <p className="text-[#6B7280] text-[11px] font-sans">
-                  Correlates 760nm–1100nm infrared emission with rapid temp spikes (&gt;45°C) to eliminate false heat alerts.
-                </p>
-                <div className="text-[10px] text-[#22C55E]">Govt Dispatch: Fire Station 101</div>
-              </div>
+              <p className="text-[#0F172A] leading-relaxed">{sup.reason}</p>
 
-              <div className="bg-[#141A16] border border-[#2D3B2F] rounded-xl p-3 space-y-1.5">
-                <div className="text-[#8B5CF6] font-bold">☁️ Air: Particulate & VOC Dispersion</div>
-                <p className="text-[#6B7280] text-[11px] font-sans">
-                  Combines MQ-2 smoke and MQ-135 ammonia/benzene resistance curve normalized against relative humidity.
-                </p>
-                <div className="text-[10px] text-[#22C55E]">Govt Dispatch: GPCB Gujarat Board</div>
+              <div className="text-[11px] text-[#2E7D32] font-mono font-semibold flex items-center gap-1.5">
+                <span>✓ Decision:</span>
+                <span>{sup.action}</span>
               </div>
             </div>
-          </div>
+          ))}
         </div>
       </div>
     </div>

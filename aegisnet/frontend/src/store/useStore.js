@@ -1,96 +1,92 @@
-// store/useStore.js — Zustand global state: Gujarat Network, AI Sensor Suggestions & Multi-Agency Emergency Escalation
+// store/useStore.js — AegisNet (EcoMonitor) v2.0 Global Zustand Store
+// Supporting Light Command Center UI, GSDMA 4-Tier Severity, Multi-Agency Dispatch Kanban, 5 Scenarios & Multilingual Citizen Portal
 
 import { create } from 'zustand'
 
-// ─── 6 Environmental Sensor Types Definition ─────────────────────────────────
-export const SENSOR_TYPES = [
+// ─── 5 Sensor Categories ──────────────────────────────────────────────────────
+export const SENSOR_CATEGORIES = [
   {
-    id: 'water',
-    type: 'Water Level / Flood',
-    label: '🌊 Water / Flood',
-    badge: 'WATER',
-    desc: 'Ultrasonic depth sensor (Lakes, Dams, Riverfront, Canals)',
-    metric: 'Water Depth',
+    id: 'flood',
+    name: 'Flood & Water Level',
+    icon: '🌊',
+    color: '#0B84C9',
     unit: 'm',
-    defaultVal: '0.45 m',
-    color: '#0D9488',
-  },
-  {
-    id: 'air',
-    type: 'Air Quality / AQI',
-    label: '🌫 Air Quality / AQI',
-    badge: 'AIR AQI',
-    desc: 'MQ-135 + PM2.5 cell (Smoke, Smog, Industrial Corridors)',
-    metric: 'AQI Index',
-    unit: 'AQI',
-    defaultVal: '42 AQI',
-    color: '#8B5CF6',
+    metrics: ['Water Depth', 'Flow Rate', 'Rainfall'],
+    desc: 'Ultrasonic depth, Doppler flow rate, and digital tipping-bucket rain gauge.',
   },
   {
     id: 'fire',
-    type: 'Thermal & Fire',
-    label: '🔥 Thermal & Fire',
-    badge: 'FIRE IR',
-    desc: 'Infrared optical detector (Forests, Scrubland, Tree Belts)',
-    metric: 'Flame & Heat',
-    unit: 'IR Sensor',
-    defaultVal: 'Normal (Safe)',
-    color: '#F97316',
-  },
-  {
-    id: 'temperature',
-    type: 'Temperature',
-    label: '🌡 Temperature',
-    badge: 'THERMAL',
-    desc: 'Precision DS18B20 thermistor (Urban Heat Islands & Microclimates)',
-    metric: 'Ambient Temp',
+    name: 'Fire & Thermal IR',
+    icon: '🔥',
+    color: '#E0621A',
     unit: '°C',
-    defaultVal: '29.4°C',
-    color: '#D97706',
+    metrics: ['Flame IR', 'Temperature', 'Smoke Density'],
+    desc: 'Optical IR flame detector, thermal array, and optical smoke particulate.',
   },
   {
-    id: 'humidity',
-    type: 'Humidity & Moisture',
-    label: '💧 Humidity & Soil',
-    badge: 'MOISTURE',
-    desc: 'Soil capacitance probe (Wetlands, Waterlogging, Farmlands)',
-    metric: 'Soil & RH',
-    unit: '%',
-    defaultVal: '68%',
-    color: '#22C55E',
+    id: 'air',
+    name: 'Air Quality (AQI)',
+    icon: '🌫️',
+    color: '#6B4FA0',
+    unit: 'AQI',
+    metrics: ['PM2.5', 'PM10', 'NO2', 'CO', 'SO2'],
+    desc: 'Laser scattering PM sensor and multi-channel electrochemical gas cells.',
   },
   {
-    id: 'gas',
-    type: 'Gas & Chemical Pollution',
-    label: '☁️ Gas & Chemicals',
-    badge: 'TOXIC GAS',
-    desc: 'Multi-gas VOC electrochemical cell (Chemical GIDCs & Dyes)',
-    metric: 'Chemical VOC',
+    id: 'chem',
+    name: 'Chemical & Toxic Gas',
+    icon: '☣️',
+    color: '#B58900',
     unit: 'ppm',
-    defaultVal: '36 ppm',
-    color: '#EC4899',
+    metrics: ['VOC', 'LPG/CH4', 'H2S', 'Ammonia'],
+    desc: 'Photoionization detector (PID) and electrochemical industrial leak cells.',
+  },
+  {
+    id: 'seismic',
+    name: 'Seismic & Vibration',
+    icon: '🌐',
+    color: '#475569',
+    unit: 'mm/s²',
+    metrics: ['Peak Ground Accel', 'Frequency', 'Displacement'],
+    desc: 'Tri-axial MEMS accelerometer for dam abutments, bridges, and fault lines.',
   },
 ]
 
-// ─── Known Gujarat Lakes & Vulnerable Landmarks for Auto-Detection ───────────
+// ─── Gujarat Regional Preset Boundaries ───────────────────────────────────────
+export const REGIONS = [
+  { id: 'all', name: 'All Gujarat Grid', center: [22.70, 71.80], zoom: 8 },
+  { id: 'gandhinagar', name: '🏛️ Gandhinagar (Capital)', center: [23.22, 72.65], zoom: 13 },
+  { id: 'ahmedabad', name: '🏙️ Ahmedabad Metro', center: [23.03, 72.58], zoom: 13 },
+  { id: 'surat', name: '🏭 Surat Industrial', center: [21.19, 72.83], zoom: 12 },
+  { id: 'vadodara', name: '⚙️ Vadodara Petrochem', center: [22.38, 73.12], zoom: 12 },
+]
+
+// ─── Known Gujarat Landmarks for Auto-Detection ──────────────────────────────
 export const GUJARAT_LANDMARKS = [
-  { name: 'Kankaria Lake Reservoir, Ahmedabad', type: 'lake', isLake: true, lat: 23.0063, lng: 72.6026 },
-  { name: 'Vastrapur Lake, Ahmedabad', type: 'lake', isLake: true, lat: 23.0360, lng: 72.5290 },
-  { name: 'Chandola Lake Basin, Ahmedabad', type: 'lake', isLake: true, lat: 22.9868, lng: 72.5892 },
-  { name: 'Thol Lake Bird Sanctuary & Wetland', type: 'lake', isLake: true, lat: 23.1412, lng: 72.3980 },
-  { name: 'Sant Sarovar Dam / Sabarmati, Gandhinagar', type: 'dam', isLake: false, lat: 23.2385, lng: 72.6710 },
-  { name: 'Sabarmati Riverfront Promenade, Ahmedabad', type: 'river', isLake: false, lat: 23.0280, lng: 72.5730 },
-  { name: 'Narmada Main Canal Siphon, Gandhinagar', type: 'canal', isLake: false, lat: 23.1670, lng: 72.6010 },
-  { name: 'Gota Lake Catchment, Ahmedabad', type: 'lake', isLake: true, lat: 23.0970, lng: 72.5320 },
-  { name: 'Ghodasar Lake, Ahmedabad', type: 'lake', isLake: true, lat: 22.9890, lng: 72.6100 },
-  { name: 'Indroda Nature Park & Deer Forest, Gandhinagar', type: 'forest', isLake: false, lat: 23.1950, lng: 72.6520 },
-  { name: 'Punit Van Botanical Park, Gandhinagar', type: 'forest', isLake: false, lat: 23.2100, lng: 72.6400 },
-  { name: 'Narol-Vatva GIDC Industrial Corridor, Ahmedabad', type: 'industrial', isLake: false, lat: 22.9734, lng: 72.5898 },
-  { name: 'Sector 24 GIDC Electronics Estate, Gandhinagar', type: 'industrial', isLake: false, lat: 23.2500, lng: 72.6300 },
-  { name: 'Ahmedabad Urban Heat Island (Kalupur Core)', type: 'urban', isLake: false, lat: 23.0305, lng: 72.6000 },
-  { name: 'Sabarmati Downstream Agricultural Basin', type: 'agricultural', isLake: false, lat: 22.9200, lng: 72.5100 },
-  { name: 'Nandesari Petrochemical Belt, Vadodara', type: 'industrial', isLake: false, lat: 22.4110, lng: 73.0980 },
-  { name: 'Tapi River Weir Causeway, Surat', type: 'water', isLake: false, lat: 21.1959, lng: 72.8302 },
+  { name: 'Sant Sarovar Dam / Sabarmati, Gandhinagar', region: 'gandhinagar', category: 'flood', lat: 23.2385, lng: 72.6710, isWater: true },
+  { name: 'Indroda Nature Park & Deer Forest, Gandhinagar', region: 'gandhinagar', category: 'fire', lat: 23.1950, lng: 72.6520, isWater: false },
+  { name: 'Narmada Main Canal Siphon, Gandhinagar', region: 'gandhinagar', category: 'flood', lat: 23.1670, lng: 72.6010, isWater: true },
+  { name: 'Sector 24 GIDC Electronics Estate, Gandhinagar', region: 'gandhinagar', category: 'air', lat: 23.2500, lng: 72.6300, isWater: false },
+  { name: 'GIFT City River Corridor, Gandhinagar', region: 'gandhinagar', category: 'flood', lat: 23.1590, lng: 72.6840, isWater: true },
+  { name: 'Punit Van Botanical Reserve, Gandhinagar', region: 'gandhinagar', category: 'fire', lat: 23.2100, lng: 72.6400, isWater: false },
+
+  { name: 'Vasna Barrage & Riverfront, Ahmedabad', region: 'ahmedabad', category: 'flood', lat: 23.0010, lng: 72.5570, isWater: true },
+  { name: 'Kankaria Lake Reservoir, Ahmedabad', region: 'ahmedabad', category: 'flood', lat: 23.0063, lng: 72.6026, isWater: true },
+  { name: 'Vastrapur Lake Catchment, Ahmedabad', region: 'ahmedabad', category: 'flood', lat: 23.0360, lng: 72.5290, isWater: true },
+  { name: 'Chandola Lake Basin, Ahmedabad', region: 'ahmedabad', category: 'flood', lat: 22.9868, lng: 72.5892, isWater: true },
+  { name: 'Thol Lake Bird Sanctuary & Wetland, Ahmedabad', region: 'ahmedabad', category: 'flood', lat: 23.1412, lng: 72.3980, isWater: true },
+  { name: 'Narol-Vatva GIDC Industrial Corridor, Ahmedabad', region: 'ahmedabad', category: 'chem', lat: 22.9734, lng: 72.5898, isWater: false },
+  { name: 'Kalupur Commercial Corridor, Ahmedabad', region: 'ahmedabad', category: 'air', lat: 23.0305, lng: 72.6000, isWater: false },
+
+  { name: 'Tapi River Weir Causeway, Surat', region: 'surat', category: 'flood', lat: 21.1959, lng: 72.8302, isWater: true },
+  { name: 'Hazira Petrochemical Industrial Belt, Surat', region: 'surat', category: 'chem', lat: 21.1020, lng: 72.6510, isWater: false },
+  { name: 'Dumas Coastal Tidal Station, Surat', region: 'surat', category: 'flood', lat: 21.0870, lng: 72.7120, isWater: true },
+  { name: 'Pandesara GIDC Textile Cluster, Surat', region: 'surat', category: 'air', lat: 21.1550, lng: 72.8250, isWater: false },
+
+  { name: 'Nandesari Chemical & Pesticide Estate, Vadodara', region: 'vadodara', category: 'chem', lat: 22.4110, lng: 73.0980, isWater: false },
+  { name: 'Vishwamitri River Urban Basin, Vadodara', region: 'vadodara', category: 'flood', lat: 22.3110, lng: 73.1890, isWater: true },
+  { name: 'Sayaji Baug Botanical Belt, Vadodara', region: 'vadodara', category: 'fire', lat: 22.3130, lng: 73.1930, isWater: false },
+  { name: 'Makarpura GIDC Heavy Engineering, Vadodara', region: 'vadodara', category: 'air', lat: 22.2530, lng: 73.1970, isWater: false },
 ]
 
 export function detectGujaratLandmark(lat, lng) {
@@ -107,768 +103,929 @@ export function detectGujaratLandmark(lat, lng) {
     }
   }
 
-  if (closest && minDistance <= 3.5) {
+  if (closest && minDistance <= 4.0) {
     return {
       name: closest.name,
-      isLake: closest.isLake,
+      region: closest.region,
+      category: closest.category,
       isNearby: true,
       distanceKm: closest.distanceKm,
-      distanceText: `${(closest.distanceKm * 1000).toFixed(0)}m from ${closest.name}`,
+      distanceText: `${(closest.distanceKm * 1000).toFixed(0)}m from ${closest.name.split(',')[0]}`,
     }
   }
 
   return {
-    name: `Gujarat Zone (${lat.toFixed(4)}° N, ${lng.toFixed(4)}° E)`,
-    isLake: false,
+    name: `Custom Location (${lat.toFixed(4)}° N, ${lng.toFixed(4)}° E)`,
+    region: 'ahmedabad',
+    category: 'flood',
     isNearby: false,
-    distanceKm: null,
+    distanceKm: 99,
     distanceText: 'Custom GPS Coordinates',
   }
 }
 
-// ─── AI Sensor Placement Recommendations for Gujarat (Lakes, Rivers, Forests, Industrial) ───
-export const AI_HOTSPOT_SUGGESTIONS = [
+// ─── Initial Simulated Fleet (~24 representative active nodes) ───────────────
+const INITIAL_NODES = [
+  // Gandhinagar
   {
-    id: 'HOTSPOT-LAKE-01',
-    sensor_type: 'Water Level / Flood',
-    recommended_for: 'water',
-    name: 'Kankaria Lake Reservoir, Ahmedabad',
-    city: 'Ahmedabad',
-    lat: 23.0063,
-    lng: 72.6026,
-    gps: '23.0063° N, 72.6026° E',
-    risk_level: 'High Public Urban Lake Catchment',
-    ai_rationale: 'AI Lake Analysis: Major historical urban lake. Real-time water depth and runoff telemetry prevents overflow into surrounding Maninagar residential areas.',
-  },
-  {
-    id: 'HOTSPOT-LAKE-02',
-    sensor_type: 'Water Level / Flood',
-    recommended_for: 'water',
-    name: 'Thol Lake Bird Sanctuary & Wetland',
-    city: 'Gandhinagar / Mehsana',
-    lat: 23.1412,
-    lng: 72.3980,
-    gps: '23.1412° N, 72.3980° E',
-    risk_level: 'Critical Ecological Wetland & Waterbody',
-    ai_rationale: 'AI Lake Analysis: Ecological freshwater wetland. Monitors water depth fluctuations and soil saturation levels for flood management.',
-  },
-  {
-    id: 'HOTSPOT-LAKE-03',
-    sensor_type: 'Water Level / Flood',
-    recommended_for: 'water',
-    name: 'Chandola Lake Basin, Ahmedabad',
-    city: 'Ahmedabad',
-    lat: 22.9868,
-    lng: 72.5892,
-    gps: '22.9868° N, 72.5892° E',
-    risk_level: 'Low-Lying Drainage Catchment',
-    ai_rationale: 'AI Lake Analysis: Key storm runoff waterbody in South Ahmedabad. Prevents flash waterlogging in surrounding industrial wards.',
-  },
-  {
-    id: 'HOTSPOT-LAKE-04',
-    sensor_type: 'Water Level / Flood',
-    recommended_for: 'water',
-    name: 'Vastrapur Lake Catchment, Ahmedabad',
-    city: 'Ahmedabad',
-    lat: 23.0360,
-    lng: 72.5290,
-    gps: '23.0360° N, 72.5290° E',
-    risk_level: 'Urban Stormwater Reservoir',
-    ai_rationale: 'AI Lake Analysis: Key recreation & urban lake in West Ahmedabad. Prevents localized urban flooding during sudden cloudburst storms.',
-  },
-  {
-    id: 'HOTSPOT-01',
-    sensor_type: 'Water Level / Flood',
-    recommended_for: 'water',
-    name: 'Sant Sarovar Dam / Sabarmati Riverfront, Gandhinagar',
+    node_id: 'NODE-01',
+    name: 'Sant Sarovar Dam Upstream',
+    region: 'gandhinagar',
     city: 'Gandhinagar',
-    lat: 23.2385,
-    lng: 72.6710,
-    gps: '23.2385° N, 72.6710° E',
-    risk_level: 'High Flood Inundation Vulnerability',
-    ai_rationale: 'AI Analysis: High monsoon discharge zone from Dharoi Dam. Installing ultrasonic water sensor provides 45+ min early evacuation warning for Gandhinagar lowlands.',
-  },
-  {
-    id: 'HOTSPOT-02',
-    sensor_type: 'Water Level / Flood',
-    recommended_for: 'water',
-    name: 'Sabarmati Riverfront & Vasna Barrage, Ahmedabad',
-    city: 'Ahmedabad',
-    lat: 22.9860,
-    lng: 72.5510,
-    gps: '22.9860° N, 72.5510° E',
-    risk_level: 'Critical Sluice Gate Catchment',
-    ai_rationale: 'AI Analysis: Major urban flood regulator. Real-time rate-of-rise sensing directly prevents inundation across Ahmedabad municipal wards.',
-  },
-  {
-    id: 'HOTSPOT-03',
-    sensor_type: 'Air Quality / AQI',
-    recommended_for: 'air',
-    name: 'Narol-Vatva GIDC Industrial Corridor, Ahmedabad',
-    city: 'Ahmedabad',
-    lat: 22.9734,
-    lng: 72.5898,
-    gps: '22.9734° N, 72.5898° E',
-    risk_level: 'Severe Industrial Chemical AQI Exposure',
-    ai_rationale: 'AI Analysis: Dense cluster of chemical, textile, and dye manufacturing. MQ-135 sensor recommended to alert GPCB of toxic gas spikes.',
-  },
-  {
-    id: 'HOTSPOT-04',
-    sensor_type: 'Air Quality / AQI',
-    recommended_for: 'air',
-    name: 'Sector 24 GIDC & Electronics Estate, Gandhinagar',
-    city: 'Gandhinagar',
-    lat: 23.2500,
-    lng: 72.6300,
-    gps: '23.2500° N, 72.6300° E',
-    risk_level: 'Moderate Urban Ambient Exposure',
-    ai_rationale: 'AI Analysis: Captures particulate cross-flow entering capital administrative quarters from northern highway bypass.',
-  },
-  {
-    id: 'HOTSPOT-05',
-    sensor_type: 'Thermal & Fire',
-    recommended_for: 'fire',
-    name: 'Indroda Nature Park & Deer Forest, Gandhinagar',
-    city: 'Gandhinagar',
-    lat: 23.1950,
-    lng: 72.6520,
-    gps: '23.1950° N, 72.6520° E',
-    risk_level: 'High Dry Scrub Wildfire Risk',
-    ai_rationale: 'AI Analysis: Extensive dry scrub vegetation along riverbank. Thermal IR flame sensor detects bushfire outbreaks before spreading to Infocity.',
-  },
-  {
-    id: 'HOTSPOT-06',
-    sensor_type: 'Temperature',
-    recommended_for: 'temperature',
-    name: 'Ahmedabad Urban Heat Island & Kalupur Junction',
-    city: 'Ahmedabad',
-    lat: 23.0305,
-    lng: 72.6000,
-    gps: '23.0305° N, 72.6000° E',
-    risk_level: 'Extreme Heatwave Microclimate',
-    ai_rationale: 'AI Analysis: High-density concrete core creates heat island anomalies exceeding +4°C above surrounding regions.',
-  },
-  {
-    id: 'HOTSPOT-07',
-    sensor_type: 'Humidity & Moisture',
-    recommended_for: 'humidity',
-    name: 'Sabarmati Downstream Agricultural Lowlands',
-    city: 'Ahmedabad Rural',
-    lat: 22.9200,
-    lng: 72.5100,
-    gps: '22.9200° N, 72.5100° E',
-    risk_level: 'Soil Saturation & Crop Waterlogging Watch',
-    ai_rationale: 'AI Analysis: River overflow causes agricultural crop waterlogging. Soil capacitance sensors track saturation thresholds.',
-  },
-  {
-    id: 'HOTSPOT-08',
-    sensor_type: 'Gas & Chemical Pollution',
-    recommended_for: 'gas',
-    name: 'Nandesari Petrochemical Belt, Vadodara',
-    city: 'Vadodara',
-    lat: 22.4110,
-    lng: 73.0980,
-    gps: '22.4110° N, 73.0980° E',
-    risk_level: 'Critical Volatile Chemical Gas Watch',
-    ai_rationale: 'AI Analysis: High risk of organic vapor dispersion. Multi-gas cell alerts GPCB & NDRF 6th Battalion in Jarod.',
-  },
-]
-
-// ─── Initial Live Sensors in Gujarat (Gandhinagar, Ahmedabad, Surat, Vadodara) ─
-const INITIAL_GUJARAT_NODES = [
-  {
-    node_id: 'S-001',
-    code: 'NODE-AIR-AHD',
-    name: 'Sensor S-001 (Air Sentinel)',
-    type: 'Air Quality / Gas',
-    city: 'Ahmedabad',
-    location: 'Narol-Vatva Industrial Zone, Ahmedabad',
-    gps: '22.9734° N, 72.5898° E',
-    latitude: 22.9734,
-    longitude: 72.5898,
-    location_desc: 'Industrial chemical emissions & urban ambient AQI',
-    is_gateway: false,
-    battery_pct: 88,
-    solar_charging: true,
-    rssi: -68,
-    connection: 'LoRa Mesh (GPS Sync)',
-    status: 'online',
-    risk_flood: 12,
-    risk_fire: 14,
-    risk_pollution: 34,
-    water_level_cm: 20.0,
-    temperature_c: 29.2,
-    humidity_pct: 62,
-    smoke_aqi: 42,
-    gas_ppm: 48,
-    flame_detected: false,
-    last_update: '4 sec ago',
-  },
-  {
-    node_id: 'S-002',
-    code: 'NODE-WATER-GNR',
-    name: 'Sensor S-002 (Water Sentinel)',
-    type: 'Water Level / Flood',
-    city: 'Gandhinagar',
-    location: 'Sant Sarovar Dam / Sabarmati, Gandhinagar',
-    gps: '23.2385° N, 72.6710° E',
+    category: 'flood',
+    sensor_type: 'Flood & Water Level',
+    location: 'Sant Sarovar Dam, Sabarmati, Gandhinagar',
     latitude: 23.2385,
     longitude: 72.6710,
-    location_desc: 'Sant Sarovar reservoir & Sabarmati River flood gauge',
-    is_gateway: false,
+    status: 'online',
+    connectivity: 'WiFi 6 + LoRa Mesh',
     battery_pct: 94,
     solar_charging: true,
-    rssi: -71,
-    connection: 'LoRa Mesh (GPS Sync)',
-    status: 'online',
-    risk_flood: 38,
-    risk_fire: 6,
-    risk_pollution: 16,
-    water_level_cm: 45.0,
-    temperature_c: 27.0,
-    humidity_pct: 78,
-    smoke_aqi: 24,
-    gas_ppm: 26,
+    firmware_version: 'v2.4.1-edge',
+    water_level_cm: 42,
+    flow_rate_m3s: 1.2,
+    smoke_aqi: 32,
+    temperature_c: 28.4,
+    humidity_pct: 64,
+    gas_ppm: 14,
+    seismic_accel: 0.02,
     flame_detected: false,
-    last_update: '6 sec ago',
-  },
-  {
-    node_id: 'S-003',
-    code: 'NODE-FIRE-GNR',
-    name: 'Sensor S-003 (Forest Sentinel)',
-    type: 'Thermal & Flame',
-    city: 'Gandhinagar',
-    location: 'Indroda Nature Park & Green Belt, Gandhinagar',
-    gps: '23.1950° N, 72.6520° E',
-    latitude: 23.1950,
-    longitude: 72.6520,
-    location_desc: 'Dry scrub forest perimeter & thermal anomaly detector',
-    is_gateway: false,
-    battery_pct: 82,
-    solar_charging: false,
-    rssi: -79,
-    connection: 'LoRa Multi-Hop (GPS Sync)',
-    status: 'online',
-    risk_flood: 8,
-    risk_fire: 26,
-    risk_pollution: 28,
-    water_level_cm: 15.0,
-    temperature_c: 32.5,
-    humidity_pct: 48,
-    smoke_aqi: 38,
-    gas_ppm: 34,
-    flame_detected: false,
-    last_update: '10 sec ago',
-  },
-  {
-    node_id: 'GW-001',
-    code: 'GSDMA-GATEWAY',
-    name: 'Gateway GW-001 (Gujarat Central Hub)',
-    type: 'LoRa Gateway & Multi-Agency Uplink',
-    city: 'Gandhinagar',
-    location: 'GSDMA Disaster Management HQ, Gandhinagar',
-    gps: '23.2230° N, 72.6492° E',
-    latitude: 23.2230,
-    longitude: 72.6492,
-    location_desc: 'Central Command Uplink to Police (100), Fire (101) & 108 Ambulance',
-    is_gateway: true,
-    battery_pct: 98,
-    solar_charging: true,
-    rssi: -58,
-    connection: 'Dual Fiber + 5G Gateway',
-    status: 'online',
-    risk_flood: 20,
-    risk_fire: 12,
-    risk_pollution: 24,
-    water_level_cm: 25.0,
-    temperature_c: 28.0,
-    humidity_pct: 66,
-    smoke_aqi: 30,
-    gas_ppm: 32,
-    flame_detected: false,
+    local_siren: false,
+    risk_score: 18,
+    severity: 'advisory',
     last_update: 'Just now',
   },
   {
-    node_id: 'S-004',
-    code: 'NODE-WATER-SURAT',
-    name: 'Sensor S-004 (Tapi Basin Sentinel)',
-    type: 'Water Level / Flood',
+    node_id: 'NODE-02',
+    name: 'Narmada Main Canal Siphon',
+    region: 'gandhinagar',
+    city: 'Gandhinagar',
+    category: 'flood',
+    sensor_type: 'Flood & Water Level',
+    location: 'Narmada Main Canal Siphon, Gandhinagar',
+    latitude: 23.1670,
+    longitude: 72.6010,
+    status: 'online',
+    connectivity: '4G LTE + LoRa Mesh',
+    battery_pct: 88,
+    solar_charging: true,
+    firmware_version: 'v2.4.1-edge',
+    water_level_cm: 55,
+    flow_rate_m3s: 2.4,
+    smoke_aqi: 38,
+    temperature_c: 29.1,
+    humidity_pct: 62,
+    gas_ppm: 18,
+    seismic_accel: 0.01,
+    flame_detected: false,
+    local_siren: false,
+    risk_score: 22,
+    severity: 'advisory',
+    last_update: '1 min ago',
+  },
+  {
+    node_id: 'NODE-03',
+    name: 'Indroda Nature Park Perimeter',
+    region: 'gandhinagar',
+    city: 'Gandhinagar',
+    category: 'fire',
+    sensor_type: 'Fire & Thermal IR',
+    location: 'Indroda Nature Park & Deer Forest, Gandhinagar',
+    latitude: 23.1950,
+    longitude: 72.6520,
+    status: 'online',
+    connectivity: 'LoRa Mesh Relay',
+    battery_pct: 79,
+    solar_charging: true,
+    firmware_version: 'v2.4.0-edge',
+    water_level_cm: 15,
+    flow_rate_m3s: 0.1,
+    smoke_aqi: 28,
+    temperature_c: 31.8,
+    humidity_pct: 48,
+    gas_ppm: 12,
+    seismic_accel: 0.01,
+    flame_detected: false,
+    local_siren: false,
+    risk_score: 15,
+    severity: 'advisory',
+    last_update: 'Just now',
+  },
+  {
+    node_id: 'NODE-04',
+    name: 'Sector 24 GIDC Industrial Cell',
+    region: 'gandhinagar',
+    city: 'Gandhinagar',
+    category: 'air',
+    sensor_type: 'Air Quality (AQI)',
+    location: 'Sector 24 GIDC Electronics Estate, Gandhinagar',
+    latitude: 23.2500,
+    longitude: 72.6300,
+    status: 'online',
+    connectivity: 'WiFi 6 Primary',
+    battery_pct: 98,
+    solar_charging: false,
+    firmware_version: 'v2.4.1-edge',
+    water_level_cm: 8,
+    flow_rate_m3s: 0.0,
+    smoke_aqi: 68,
+    temperature_c: 32.4,
+    humidity_pct: 54,
+    gas_ppm: 34,
+    seismic_accel: 0.03,
+    flame_detected: false,
+    local_siren: false,
+    risk_score: 28,
+    severity: 'advisory',
+    last_update: '2 min ago',
+  },
+  {
+    node_id: 'NODE-05',
+    name: 'GIFT City Sabarmati Riverfront',
+    region: 'gandhinagar',
+    city: 'Gandhinagar',
+    category: 'flood',
+    sensor_type: 'Flood & Water Level',
+    location: 'GIFT City River Corridor, Gandhinagar',
+    latitude: 23.1590,
+    longitude: 72.6840,
+    status: 'online',
+    connectivity: '5G Dedicated Gateway',
+    battery_pct: 100,
+    solar_charging: true,
+    firmware_version: 'v2.4.2-edge',
+    water_level_cm: 48,
+    flow_rate_m3s: 1.8,
+    smoke_aqi: 42,
+    temperature_c: 28.7,
+    humidity_pct: 65,
+    gas_ppm: 16,
+    seismic_accel: 0.02,
+    flame_detected: false,
+    local_siren: false,
+    risk_score: 20,
+    severity: 'advisory',
+    last_update: 'Just now',
+  },
+
+  // Ahmedabad
+  {
+    node_id: 'NODE-06',
+    name: 'Vasna Barrage Sluice Gate',
+    region: 'ahmedabad',
+    city: 'Ahmedabad',
+    category: 'flood',
+    sensor_type: 'Flood & Water Level',
+    location: 'Vasna Barrage & Riverfront, Ahmedabad',
+    latitude: 23.0010,
+    longitude: 72.5570,
+    status: 'online',
+    connectivity: '4G LTE + LoRa Mesh',
+    battery_pct: 91,
+    solar_charging: true,
+    firmware_version: 'v2.4.1-edge',
+    water_level_cm: 62,
+    flow_rate_m3s: 3.1,
+    smoke_aqi: 58,
+    temperature_c: 30.2,
+    humidity_pct: 66,
+    gas_ppm: 22,
+    seismic_accel: 0.04,
+    flame_detected: false,
+    local_siren: false,
+    risk_score: 25,
+    severity: 'advisory',
+    last_update: 'Just now',
+  },
+  {
+    node_id: 'NODE-07',
+    name: 'Kankaria Lake North Reservoir',
+    region: 'ahmedabad',
+    city: 'Ahmedabad',
+    category: 'flood',
+    sensor_type: 'Flood & Water Level',
+    location: 'Kankaria Lake Reservoir, Ahmedabad',
+    latitude: 23.0063,
+    longitude: 72.6026,
+    status: 'online',
+    connectivity: 'WiFi 6 Primary',
+    battery_pct: 85,
+    solar_charging: true,
+    firmware_version: 'v2.4.0-edge',
+    water_level_cm: 50,
+    flow_rate_m3s: 0.4,
+    smoke_aqi: 64,
+    temperature_c: 31.0,
+    humidity_pct: 68,
+    gas_ppm: 19,
+    seismic_accel: 0.02,
+    flame_detected: false,
+    local_siren: false,
+    risk_score: 22,
+    severity: 'advisory',
+    last_update: '1 min ago',
+  },
+  {
+    node_id: 'NODE-08',
+    name: 'Narol-Vatva Chemical Corridor',
+    region: 'ahmedabad',
+    city: 'Ahmedabad',
+    category: 'chem',
+    sensor_type: 'Chemical & Toxic Gas',
+    location: 'Narol-Vatva GIDC Industrial Corridor, Ahmedabad',
+    latitude: 22.9734,
+    longitude: 72.5898,
+    status: 'online',
+    connectivity: '4G LTE Gateway',
+    battery_pct: 95,
+    solar_charging: false,
+    firmware_version: 'v2.4.2-edge',
+    water_level_cm: 12,
+    flow_rate_m3s: 0.0,
+    smoke_aqi: 95,
+    temperature_c: 33.5,
+    humidity_pct: 50,
+    gas_ppm: 46,
+    seismic_accel: 0.05,
+    flame_detected: false,
+    local_siren: false,
+    risk_score: 36,
+    severity: 'advisory',
+    last_update: 'Just now',
+  },
+  {
+    node_id: 'NODE-09',
+    name: 'Vastrapur Lake Catchment',
+    region: 'ahmedabad',
+    city: 'Ahmedabad',
+    category: 'flood',
+    sensor_type: 'Flood & Water Level',
+    location: 'Vastrapur Lake Catchment, Ahmedabad',
+    latitude: 23.0360,
+    longitude: 72.5290,
+    status: 'online',
+    connectivity: 'WiFi 6 Primary',
+    battery_pct: 78,
+    solar_charging: true,
+    firmware_version: 'v2.4.1-edge',
+    water_level_cm: 38,
+    flow_rate_m3s: 0.2,
+    smoke_aqi: 52,
+    temperature_c: 29.8,
+    humidity_pct: 60,
+    gas_ppm: 15,
+    seismic_accel: 0.02,
+    flame_detected: false,
+    local_siren: false,
+    risk_score: 18,
+    severity: 'advisory',
+    last_update: '3 min ago',
+  },
+  {
+    node_id: 'NODE-10',
+    name: 'Thol Bird Sanctuary Wetland',
+    region: 'ahmedabad',
+    city: 'Ahmedabad',
+    category: 'flood',
+    sensor_type: 'Flood & Water Level',
+    location: 'Thol Lake Bird Sanctuary & Wetland, Ahmedabad',
+    latitude: 23.1412,
+    longitude: 72.3980,
+    status: 'online',
+    connectivity: 'LoRa Mesh Solar Relay',
+    battery_pct: 92,
+    solar_charging: true,
+    firmware_version: 'v2.4.1-edge',
+    water_level_cm: 70,
+    flow_rate_m3s: 0.6,
+    smoke_aqi: 22,
+    temperature_c: 27.5,
+    humidity_pct: 72,
+    gas_ppm: 8,
+    seismic_accel: 0.01,
+    flame_detected: false,
+    local_siren: false,
+    risk_score: 24,
+    severity: 'advisory',
+    last_update: 'Just now',
+  },
+
+  // Surat
+  {
+    node_id: 'NODE-11',
+    name: 'Tapi River Weir Causeway',
+    region: 'surat',
     city: 'Surat',
+    category: 'flood',
+    sensor_type: 'Flood & Water Level',
     location: 'Tapi River Weir Causeway, Surat',
-    gps: '21.1959° N, 72.8302° E',
     latitude: 21.1959,
     longitude: 72.8302,
-    location_desc: 'Surat coastal & river tidal inundation monitor',
-    is_gateway: false,
-    battery_pct: 90,
-    solar_charging: true,
-    rssi: -74,
-    connection: 'LoRa Mesh (GPS Sync)',
     status: 'online',
-    risk_flood: 42,
-    risk_fire: 5,
-    risk_pollution: 22,
-    water_level_cm: 52.0,
-    temperature_c: 28.6,
-    humidity_pct: 82,
-    smoke_aqi: 26,
-    gas_ppm: 29,
-    flame_detected: false,
-    last_update: '14 sec ago',
-  },
-  {
-    node_id: 'S-005',
-    code: 'NODE-AIR-VAD',
-    name: 'Sensor S-005 (Petrochem Sentinel)',
-    type: 'Air Quality / Gas',
-    city: 'Vadodara',
-    location: 'Nandesari Petrochemical Belt, Vadodara',
-    gps: '22.4110° N, 73.0980° E',
-    latitude: 22.4110,
-    longitude: 73.0980,
-    location_desc: 'Vadodara petrochemical corridor VOC gas monitoring',
-    is_gateway: false,
+    connectivity: '4G LTE + LoRa Mesh',
     battery_pct: 86,
     solar_charging: true,
-    rssi: -76,
-    connection: 'LoRa Mesh (GPS Sync)',
-    status: 'online',
-    risk_flood: 10,
-    risk_fire: 18,
-    risk_pollution: 46,
-    water_level_cm: 18.0,
-    temperature_c: 30.1,
-    humidity_pct: 58,
-    smoke_aqi: 54,
-    gas_ppm: 62,
+    firmware_version: 'v2.4.1-edge',
+    water_level_cm: 58,
+    flow_rate_m3s: 4.5,
+    smoke_aqi: 48,
+    temperature_c: 30.8,
+    humidity_pct: 75,
+    gas_ppm: 20,
+    seismic_accel: 0.03,
     flame_detected: false,
-    last_update: '18 sec ago',
-  },
-]
-
-// ─── Active Emergency Alerts in Gujarat ───────────────────────────────────────
-const INITIAL_GUJARAT_ALERTS = [
-  {
-    id: 101,
-    severity: 'critical',
-    hazard: 'fire',
-    title: 'CRITICAL EMERGENCY — Forest Fire Surge',
-    sensor_id: 'S-003',
-    sensor_name: 'Sensor S-003 (Indroda Nature Park, Gandhinagar)',
-    message: 'Active IR Flame detected. Temperature 48.2°C surging rapidly near Infocity green corridor.',
-    location: 'Indroda Nature Park & Green Belt, Gandhinagar',
-    city: 'Gandhinagar',
-    time: '14:28',
-    date: '2026-09-16',
-    risk_score: 95,
-    area_probability: 0.94,
-    acknowledged: false,
-    // Multi-Agency Emergency Call & Email Rules per user specification:
-    callCops: '🚓 COPS DISPATCHED: Gandhinagar Police Control Room (Dial 100 / 112)',
-    callFire: '🚒 FIRE BRIGADE DISPATCHED: Gandhinagar Fire & Emergency Station (Dial 101)',
-    callAmbulance: '🚑 AMBULANCE EN ROUTE: 108 GVK-EMRI Gujarat Emergency Medical Service',
-    mailRecipient: 'TO: gsdma@gujarat.gov.in, collector-gandhinagar@gujarat.gov.in, fire-station.gnr@gujarat.gov.in',
+    local_siren: false,
+    risk_score: 26,
+    severity: 'advisory',
+    last_update: 'Just now',
   },
   {
-    id: 102,
-    severity: 'critical',
-    hazard: 'flood',
-    title: 'CRITICAL EMERGENCY — Sabarmati River Overflow',
-    sensor_id: 'S-002',
-    sensor_name: 'Sensor S-002 (Sant Sarovar Dam, Gandhinagar)',
-    message: 'Water level reached 1.48 m (+4.5cm/min rapid surge). Dharoi outflow imminent.',
-    location: 'Sant Sarovar Dam / Sabarmati River, Gandhinagar',
-    city: 'Gandhinagar',
-    time: '14:32',
-    date: '2026-09-16',
-    risk_score: 91,
-    area_probability: 0.89,
-    acknowledged: false,
-    callCops: '🚓 COPS EVACUATION CALL: Sabarmati River Patrol Police & SDRF Team (112)',
-    callFire: '🚒 RESCUE TENDER: Gujarat Fire & Rescue Boat Division (101)',
-    callAmbulance: '🚑 108 AMBULANCE DISPATCHED: High-Alert Riverfront Staging Units',
-    mailRecipient: 'TO: flood-control.gujarat@gov.in, collector-ahmedabad@gujarat.gov.in, gsdma@gujarat.gov.in',
-  },
-  {
-    id: 103,
-    severity: 'warning',
-    hazard: 'pollution',
-    title: 'WARNING — Industrial Chemical AQI Surge',
-    sensor_id: 'S-001',
-    sensor_name: 'Sensor S-001 (Narol-Vatva, Ahmedabad)',
-    message: 'AQI spiked to 192 ppm. Severe chemical hydrocarbon concentration detected.',
-    location: 'Narol-Vatva Industrial Zone, Ahmedabad',
-    city: 'Ahmedabad',
-    time: '14:15',
-    date: '2026-09-16',
-    risk_score: 72,
-    area_probability: 0.78,
-    acknowledged: true,
-    callCops: '🚓 Police Traffic Diversion Advisory Active (100)',
-    callFire: '🚒 Hazmat Chemical Response Standby (101)',
-    callAmbulance: '🚑 108 Industrial Medical Support Standby',
-    mailRecipient: 'TO: gpcb-ahmedabad@gujarat.gov.in, health-dept.amc@ahmedabadcity.gov.in',
-  },
-]
-
-// ─── Gujarat Historical Logs ──────────────────────────────────────────────────
-const INITIAL_GUJARAT_HISTORY = [
-  {
-    id: 1,
-    time: '14:32:10',
-    date: '2026-09-16',
-    sensor: 'S-002 (Sant Sarovar, Gandhinagar)',
-    location: 'Sant Sarovar Dam / Sabarmati',
-    city: 'Gandhinagar',
-    temperature: 27.2,
-    aqi: 24,
-    water_level: '1.48 m',
-    status: 'Critical',
-    alert_type: 'Flood Overflow',
-  },
-  {
-    id: 2,
-    time: '14:28:00',
-    date: '2026-09-16',
-    sensor: 'S-003 (Indroda Park, Gandhinagar)',
-    location: 'Indroda Nature Park & Green Belt',
-    city: 'Gandhinagar',
-    temperature: 48.2,
-    aqi: 198,
-    water_level: '0.15 m',
-    status: 'Critical',
-    alert_type: 'Forest Fire',
-  },
-  {
-    id: 3,
-    time: '14:15:30',
-    date: '2026-09-16',
-    sensor: 'S-001 (Narol-Vatva, Ahmedabad)',
-    location: 'Narol-Vatva Industrial Zone',
-    city: 'Ahmedabad',
-    temperature: 29.5,
-    aqi: 192,
-    water_level: '0.20 m',
-    status: 'Warning',
-    alert_type: 'Chemical Gas Spike',
-  },
-  {
-    id: 4,
-    time: '13:45:00',
-    date: '2026-09-16',
-    sensor: 'S-004 (Tapi Basin, Surat)',
-    location: 'Tapi River Weir Causeway',
+    node_id: 'NODE-12',
+    name: 'Hazira Petrochem Hazard Sentinel',
+    region: 'surat',
     city: 'Surat',
-    temperature: 28.8,
-    aqi: 28,
-    water_level: '0.52 m',
-    status: 'Normal',
-    alert_type: 'Routine Telemetry',
+    category: 'chem',
+    sensor_type: 'Chemical & Toxic Gas',
+    location: 'Hazira Petrochemical Industrial Belt, Surat',
+    latitude: 21.1020,
+    longitude: 72.6510,
+    status: 'online',
+    connectivity: 'WiFi 6 + Cellular',
+    battery_pct: 97,
+    solar_charging: false,
+    firmware_version: 'v2.4.2-edge',
+    water_level_cm: 10,
+    flow_rate_m3s: 0.0,
+    smoke_aqi: 88,
+    temperature_c: 33.1,
+    humidity_pct: 68,
+    gas_ppm: 42,
+    seismic_accel: 0.06,
+    flame_detected: false,
+    local_siren: false,
+    risk_score: 34,
+    severity: 'advisory',
+    last_update: '2 min ago',
   },
   {
-    id: 5,
-    time: '13:20:00',
-    date: '2026-09-16',
-    sensor: 'S-005 (Nandesari, Vadodara)',
-    location: 'Nandesari Petrochem Belt',
+    node_id: 'NODE-13',
+    name: 'Dumas Coastal Surge Station',
+    region: 'surat',
+    city: 'Surat',
+    category: 'flood',
+    sensor_type: 'Flood & Water Level',
+    location: 'Dumas Coastal Tidal Station, Surat',
+    latitude: 21.0870,
+    longitude: 72.7120,
+    status: 'online',
+    connectivity: 'LoRa Mesh Relay',
+    battery_pct: 82,
+    solar_charging: true,
+    firmware_version: 'v2.4.0-edge',
+    water_level_cm: 65,
+    flow_rate_m3s: 2.1,
+    smoke_aqi: 35,
+    temperature_c: 29.4,
+    humidity_pct: 80,
+    gas_ppm: 14,
+    seismic_accel: 0.02,
+    flame_detected: false,
+    local_siren: false,
+    risk_score: 25,
+    severity: 'advisory',
+    last_update: 'Just now',
+  },
+
+  // Vadodara
+  {
+    node_id: 'NODE-14',
+    name: 'Nandesari GIDC Toxic VOC Sentinel',
+    region: 'vadodara',
     city: 'Vadodara',
-    temperature: 30.1,
-    aqi: 54,
-    water_level: '0.18 m',
-    status: 'Normal',
-    alert_type: 'Routine Telemetry',
+    category: 'chem',
+    sensor_type: 'Chemical & Toxic Gas',
+    location: 'Nandesari Chemical & Pesticide Estate, Vadodara',
+    latitude: 22.4110,
+    longitude: 73.0980,
+    status: 'online',
+    connectivity: '4G LTE Primary',
+    battery_pct: 90,
+    solar_charging: true,
+    firmware_version: 'v2.4.1-edge',
+    water_level_cm: 14,
+    flow_rate_m3s: 0.0,
+    smoke_aqi: 82,
+    temperature_c: 32.0,
+    humidity_pct: 58,
+    gas_ppm: 40,
+    seismic_accel: 0.03,
+    flame_detected: false,
+    local_siren: false,
+    risk_score: 32,
+    severity: 'advisory',
+    last_update: '1 min ago',
+  },
+  {
+    node_id: 'NODE-15',
+    name: 'Vishwamitri River Urban Basin',
+    region: 'vadodara',
+    city: 'Vadodara',
+    category: 'flood',
+    sensor_type: 'Flood & Water Level',
+    location: 'Vishwamitri River Urban Basin, Vadodara',
+    latitude: 22.3110,
+    longitude: 73.1890,
+    status: 'online',
+    connectivity: 'LoRa Mesh Gateway',
+    battery_pct: 84,
+    solar_charging: true,
+    firmware_version: 'v2.4.1-edge',
+    water_level_cm: 45,
+    flow_rate_m3s: 1.5,
+    smoke_aqi: 56,
+    temperature_c: 30.5,
+    humidity_pct: 64,
+    gas_ppm: 21,
+    seismic_accel: 0.02,
+    flame_detected: false,
+    local_siren: false,
+    risk_score: 21,
+    severity: 'advisory',
+    last_update: 'Just now',
   },
 ]
 
+// ─── Initial Incident Alerts (GSDMA 4-Tier) ──────────────────────────────────
+const INITIAL_ALERTS = [
+  {
+    id: 'ALT-101',
+    node_id: 'NODE-08',
+    category: 'chem',
+    hazard: 'chemical',
+    severity: 'warning',
+    risk_score: 58,
+    title: 'Elevated Volatile Organic Chemical Plume',
+    location: 'Narol-Vatva GIDC Industrial Corridor, Ahmedabad',
+    landmark_tag: 'Near Vatva GIDC Pumping Station',
+    timestamp: '12 min ago',
+    acknowledged: false,
+    correlated_nodes: 2,
+    confidence_pct: 86.4,
+    root_cause: 'MQ-135 and PID sensor detected sustained VOC surge (>45 ppm) across 2 adjacent nodes.',
+    readings_snapshot: { gas_ppm: 46, smoke_aqi: 95, temp_c: 33.5 },
+    dispatch_status: 'Notified',
+  },
+  {
+    id: 'ALT-102',
+    node_id: 'NODE-06',
+    category: 'flood',
+    hazard: 'flood',
+    severity: 'watch',
+    risk_score: 44,
+    title: 'Upstream Discharge Advisory: Sabarmati Vasna',
+    location: 'Vasna Barrage & Riverfront, Ahmedabad',
+    landmark_tag: 'Vasna Barrage Gate 14',
+    timestamp: '28 min ago',
+    acknowledged: true,
+    acknowledged_by: 'Officer R. Sharma (GSDMA)',
+    correlated_nodes: 1,
+    confidence_pct: 78.2,
+    root_cause: 'Ultrasonic sensor registered steady inflow rate change +8 cm/hr.',
+    readings_snapshot: { water_level_cm: 62, flow_rate_m3s: 3.1 },
+    dispatch_status: 'Acknowledged',
+  },
+]
+
+// ─── Initial Multi-Agency Dispatch Board (Kanban) ─────────────────────────────
+const INITIAL_DISPATCHES = [
+  {
+    agency: 'GSDMA (State Disaster Authority)',
+    contact: '+91 79 23259283 / alert@gsdma.gov.in',
+    status: 'Acknowledged', // 'Not Notified' | 'Notified' | 'Acknowledged' | 'Responding' | 'On Scene'
+    sla_min: 2,
+    notified_at: '12 min ago',
+    acknowledged_at: '10 min ago',
+    officer: 'Dy. Collector K. Patel',
+    channel: 'Automated SMS + VoIP Bridge',
+  },
+  {
+    agency: 'Fire & Emergency Services (101)',
+    contact: 'Ahmedabad Fire HQ (Danilimda)',
+    status: 'Responding',
+    sla_min: 5,
+    notified_at: '12 min ago',
+    acknowledged_at: '8 min ago',
+    officer: 'Station Officer S. Rathod',
+    channel: 'CAD Dispatch Webhook',
+  },
+  {
+    agency: 'Municipal Corporation (AMC)',
+    contact: 'Control Room Drainage & Health',
+    status: 'Notified',
+    sla_min: 10,
+    notified_at: '11 min ago',
+    acknowledged_at: null,
+    officer: 'Pending Duty Engineer',
+    channel: 'SMS Gateway + Email',
+  },
+  {
+    agency: 'Gujarat Police Control (100)',
+    contact: 'Vatva Police Station & Traffic Cell',
+    status: 'Acknowledged',
+    sla_min: 5,
+    notified_at: '12 min ago',
+    acknowledged_at: '9 min ago',
+    officer: 'PSI V. Zala',
+    channel: 'Police Wireless Terminal',
+  },
+  {
+    agency: 'GVK EMRI Ambulance (108)',
+    contact: 'EMS Cluster Unit 14-A',
+    status: 'Not Notified',
+    sla_min: 5,
+    notified_at: null,
+    acknowledged_at: null,
+    officer: 'Standby Triage',
+    channel: 'EMRI Dispatch API',
+  },
+]
+
+// ─── Initial Public Advisories (Citizen Portal) ──────────────────────────────
+const INITIAL_ADVISORIES = [
+  {
+    id: 'ADV-01',
+    zone: 'Narol-Vatva & Isanpur Zone (Ahmedabad)',
+    severity: 'watch',
+    published_at: '15 min ago',
+    published_by: 'GSDMA Emergency Duty Officer',
+    en: {
+      title: 'Air Quality & Chemical Vapor Watch',
+      message: 'Elevated industrial particulate and chemical odor detected in Narol-Vatva. Residents with asthma or respiratory conditions are advised to remain indoors and keep windows closed.',
+      action: 'Wear N95 masks outdoors • Avoid heavy outdoor physical activity.',
+    },
+    gu: {
+      title: 'હવાની ગુણવત્તા અને રાસાયણિક વરાળ વોચ',
+      message: 'નારોલ-વટવા વિસ્તારમાં ઔદ્યોગિક પ્રદૂષણનું પ્રમાણ વધુ નોંધાયું છે. શ્વાસની તકલીફ ધરાવતા નાગરિકોને ઘરમાં રહેવાની અને બારીઓ બંધ રાખવાની સલાહ આપવામાં આવે છે.',
+      action: 'બહાર નીકળતી વખતે N95 માસ્ક પહેરો • બહારની ભારે કસરત ટાળો.',
+    },
+    hi: {
+      title: 'वायु गुणवत्ता एवं रासायनिक वाष्प वॉच',
+      message: 'नारोल-वटवा क्षेत्र में औद्योगिक गंध एवं प्रदूषण बढ़ा हुआ दर्ज हुआ है। सांस की परेशानी वाले नागरिक घर के अंदर रहें और खिड़कियां बंद रखें।',
+      action: 'बाहर जाते समय N95 मास्क पहनें • भारी बाहरी गतिविधियों से बचें।',
+    },
+  },
+]
+
+// ─── False-Positive Suppression Log ──────────────────────────────────────────
+const INITIAL_SUPPRESSIONS = [
+  {
+    id: 'SUP-401',
+    node_id: 'NODE-04',
+    time: '24 min ago',
+    sensor: 'MQ-135 Gas Cell',
+    spike_val: '78 ppm VOC',
+    reason: 'Vehicle exhaust transient from passing diesel truck — rate-of-change decayed within 35s. Classified as non-hazard by Qualcomm edge model.',
+    action: 'Suppressed on-device (Zero false alarm dispatch)',
+  },
+  {
+    id: 'SUP-402',
+    node_id: 'NODE-07',
+    time: '1h 14m ago',
+    sensor: 'Ultrasonic Depth',
+    spike_val: 'Water surge +24 cm',
+    reason: 'Transient speed-boat wake at Kankaria lake. Multi-sensor fusion with adjacent flood nodes confirmed no regional reservoir rise.',
+    action: 'Suppressed on-device',
+  },
+  {
+    id: 'SUP-403',
+    node_id: 'NODE-03',
+    time: '3h 05m ago',
+    sensor: 'Thermal IR',
+    spike_val: '46.2°C IR Spike',
+    reason: 'Solar glare reflection off park maintenance vehicle roof. Optical flame channel was negative.',
+    action: 'Suppressed on-device',
+  },
+]
+
+// ─── Main Zustand Store ───────────────────────────────────────────────────────
 export const useStore = create((set, get) => ({
-  nodes: INITIAL_GUJARAT_NODES,
-  alerts: INITIAL_GUJARAT_ALERTS,
-  history: INITIAL_GUJARAT_HISTORY,
-  aiHotspots: AI_HOTSPOT_SUGGESTIONS,
-  smsToasts: [],
-  activeScenario: null,
-  mockMode: true,
-  connected: true,
+  // Active Navigation & Filters
+  selectedRegion: 'all', // 'all' | 'gandhinagar' | 'ahmedabad' | 'surat' | 'vadodara'
+  setSelectedRegion: (region) => set({ selectedRegion: region }),
 
-  setNodes:     (nodes)    => set({ nodes }),
-  setAlerts:    (alerts)   => set({ alerts }),
-  mapPlacementMode: null, // { active: boolean, sensorType: string }
-  setMapPlacementMode: (mode) => set({ mapPlacementMode: mode }),
+  searchQuery: '',
+  setSearchQuery: (query) => set({ searchQuery: query }),
 
-  // Install a Sensor directly from UI, Leaflet Map Click, or AI Map Suggestion
-  addSensor: (newSensor) => set((state) => {
-    const nextId = newSensor.node_id || `S-00${state.nodes.length + 1}`
-    const stype = newSensor.type || 'Water Level / Flood'
+  sidebarCollapsed: false,
+  toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
 
-    let initWater = 20.0
-    let initTemp = 28.5
-    let initHum = 65
-    let initAqi = 30
-    let initGas = 25
-    let initFlame = false
-    let riskFlood = 10
-    let riskFire = 8
-    let riskPollution = 12
+  commandPaletteOpen: false,
+  setCommandPaletteOpen: (open) => set({ commandPaletteOpen: open }),
 
-    if (stype.includes('Water')) {
-      initWater = 45.0
-      riskFlood = 24
-      initHum = 76
-    } else if (stype.includes('Air')) {
-      initAqi = 52.0
-      riskPollution = 32
-      initGas = 35
-    } else if (stype.includes('Thermal') || stype.includes('Fire')) {
-      initTemp = 33.2
-      riskFire = 22
-      initHum = 44
-    } else if (stype.includes('Temperature')) {
-      initTemp = 36.4
-      riskFire = 18
-      initHum = 45
-    } else if (stype.includes('Humidity')) {
-      initHum = 82
-      initWater = 32.0
-      riskFlood = 20
-    } else if (stype.includes('Gas')) {
-      initGas = 65
-      initAqi = 60
-      riskPollution = 36
-    }
+  scenarioDrawerOpen: false,
+  setScenarioDrawerOpen: (open) => set({ scenarioDrawerOpen: open }),
 
-    const createdNode = {
-      node_id: nextId,
-      code: nextId,
-      name: newSensor.name || `Sensor ${nextId} (${stype.split('/')[0].trim()})`,
-      type: stype,
-      city: newSensor.city || 'Gujarat Grid',
-      location: newSensor.location || 'Gujarat Monitored Area',
-      gps: newSensor.gps || `${parseFloat(newSensor.latitude || 23.22).toFixed(4)}° N, ${parseFloat(newSensor.longitude || 72.65).toFixed(4)}° E`,
-      latitude: parseFloat(newSensor.latitude) || 23.2200,
-      longitude: parseFloat(newSensor.longitude) || 72.6500,
-      location_desc: newSensor.location_desc || newSensor.location || 'Active IoT Environmental Sentinel',
-      is_gateway: false,
-      battery_pct: parseInt(newSensor.battery_pct, 10) || 100,
-      solar_charging: true,
-      rssi: -65,
-      connection: newSensor.connection || 'LoRa Mesh (GPS Auto-Sync)',
-      status: 'online',
-      risk_flood: riskFlood,
-      risk_fire: riskFire,
-      risk_pollution: riskPollution,
-      water_level_cm: initWater,
-      temperature_c: initTemp,
-      humidity_pct: initHum,
-      smoke_aqi: initAqi,
-      gas_ppm: initGas,
-      flame_detected: initFlame,
-      last_update: 'Just now (Live Tracking)',
-    }
+  emergencyModalData: null, // { title, message, onConfirm }
+  setEmergencyModalData: (data) => set({ emergencyModalData: data }),
 
-    return {
-      nodes: [...state.nodes, createdNode],
-      history: [
-        {
-          id: Date.now(),
-          time: new Date().toLocaleTimeString(),
-          date: new Date().toISOString().split('T')[0],
-          sensor: createdNode.name,
-          location: createdNode.location,
-          city: createdNode.city,
-          temperature: initTemp,
-          aqi: initAqi,
-          water_level: `${(initWater / 100).toFixed(2)} m`,
-          status: 'Normal',
-          alert_type: `${stype.split('/')[0].trim()} Deployed & Online`,
-        },
-        ...state.history,
-      ],
-    }
-  }),
+  // Fleet & Telemetry State
+  nodes: INITIAL_NODES,
+  alerts: INITIAL_ALERTS,
+  dispatches: INITIAL_DISPATCHES,
+  advisories: INITIAL_ADVISORIES,
+  suppressionLog: INITIAL_SUPPRESSIONS,
 
-  // Acknowledge alert
-  acknowledgeAlert: (alertId) => set((state) => ({
-    alerts: state.alerts.map((a) =>
-      a.id === alertId ? { ...a, acknowledged: true, status: 'resolved' } : a
-    ),
-  })),
+  // Hardware Mode ('simulated' | 'live')
+  hardwareMode: 'simulated',
+  setHardwareMode: (mode) => set({ hardwareMode: mode }),
 
-  dismissToast: (id) => set((state) => ({
-    smsToasts: state.smsToasts.filter((t) => t.id !== id),
-  })),
+  // Public Portal Language ('en' | 'gu' | 'hi')
+  publicLanguage: 'en',
+  setPublicLanguage: (lang) => set({ publicLanguage: lang }),
 
-  // Multi-Agency Emergency Call & Govt Notification Dispatcher
-  addAlert: (alert) => {
-    const isFire = alert.hazard === 'fire'
-    const isWater = alert.hazard === 'flood'
-    const toastId = Date.now() + Math.random()
+  // Active Simulation Scenario
+  activeScenario: null, // 'flood' | 'fire' | 'gas' | 'false_positive' | 'lora_drill' | null
 
-    const newToast = {
-      id: toastId,
-      hazard: alert.hazard,
-      risk_score: alert.risk_score,
-      node_id: alert.node_id || alert.sensor_id,
-      node_name: alert.node_name || alert.sensor_name,
-      message: alert.message,
-      area_probability: alert.area_probability ?? 0.91,
-      // Full Cops, Fire, Ambulance & Govt Email escalation:
-      callCops: '🚓 POLICE DIAL 100/112: Ahmedabad-Gandhinagar Commissionerate Squad Dispatched',
-      callFire: isFire
-        ? '🚒 FIRE BRIGADE DIAL 101: Emergency Fire Tender & Foam Units En Route'
-        : '🚒 FIRE & RESCUE DIAL 101: Flood Rescue Boats Staged',
-      callAmbulance: '🚑 AMBULANCE DIAL 108: GVK-EMRI Gujarat Emergency Medical Vehicle Dispatched',
-      mailRecipient: isFire
-        ? 'TO: gsdma@gujarat.gov.in, fire-station.emergency@gujarat.gov.in, collector-gandhinagar@gujarat.gov.in'
-        : isWater
-        ? 'TO: flood-control.gujarat@gov.in, collector-ahmedabad@gujarat.gov.in, gsdma@gujarat.gov.in'
-        : 'TO: gpcb-ahmedabad@gujarat.gov.in, health-dept.amc@ahmedabadcity.gov.in',
-      timestamp: new Date().toLocaleTimeString(),
-      latency: '<1.1s (LoRa Mesh to GSDMA Hub)',
-    }
+  // System Audit Log
+  auditLog: [
+    { id: 1, action: 'System Bootstrapped', user: 'System Kernel', time: '1h ago', details: 'AegisNet v2.0 Command Center initialised across 142 nodes.' },
+    { id: 2, action: 'Alert Acknowledged', user: 'Officer R. Sharma (GSDMA)', time: '28 min ago', details: 'Sabarmati Vasna Barrage watch verified.' },
+    { id: 3, action: 'Advisory Published', user: 'GSDMA Emergency Duty Officer', time: '15 min ago', details: 'Published Narol-Vatva air quality watch in 3 languages.' },
+  ],
 
+  addAuditLog: (action, user, details) => {
     set((state) => ({
-      alerts: [alert, ...state.alerts],
-      smsToasts: [newToast, ...state.smsToasts].slice(0, 4),
-      history: [
-        {
-          id: Date.now(),
-          time: new Date().toLocaleTimeString(),
-          date: new Date().toISOString().split('T')[0],
-          sensor: alert.sensor_name || alert.node_name,
-          location: alert.location || 'Gujarat Monitored Area',
-          city: alert.city || 'Gandhinagar',
-          temperature: isFire ? 48.2 : 28.0,
-          aqi: alert.hazard === 'pollution' ? 192 : 35,
-          water_level: isWater ? '1.48 m' : '0.35 m',
-          status: alert.risk_score >= 70 ? 'Critical' : 'Warning',
-          alert_type: alert.hazard?.toUpperCase(),
-        },
-        ...state.history,
+      auditLog: [
+        { id: Date.now(), action, user, time: 'Just now', details },
+        ...state.auditLog,
       ],
     }))
   },
 
-  // Interactive Scenario Trigger for Gujarat Network
-  triggerScenario: (type) => {
-    const state = get()
-    if (type === 'normal') {
-      set({
-        activeScenario: null,
-        nodes: state.nodes.map((n) => ({
-          ...n,
-          risk_flood: n.node_id === 'S-002' ? 35 : 12,
-          risk_fire: n.node_id === 'S-003' ? 18 : 8,
-          risk_pollution: n.node_id === 'S-001' ? 28 : 16,
-          water_level_cm: n.node_id === 'S-002' ? 45.0 : 20.0,
-          smoke_aqi: n.node_id === 'S-001' ? 42.0 : 25.0,
-          temperature_c: 28.5,
-          flame_detected: false,
-        })),
-      })
-      return
+  // ─── Sensor Node Actions ───────────────────────────────────────────────────
+  addNode: (nodeData) => {
+    const newNode = {
+      node_id: `NODE-${String(get().nodes.length + 1).padStart(2, '0')}`,
+      status: 'online',
+      connectivity: nodeData.connectivity || 'WiFi 6 + LoRa Mesh',
+      battery_pct: nodeData.battery_pct || 100,
+      solar_charging: true,
+      firmware_version: 'v2.4.2-edge',
+      water_level_cm: 35,
+      flow_rate_m3s: 0.8,
+      smoke_aqi: 40,
+      temperature_c: 28.5,
+      humidity_pct: 60,
+      gas_ppm: 16,
+      seismic_accel: 0.02,
+      flame_detected: false,
+      local_siren: false,
+      risk_score: 18,
+      severity: 'advisory',
+      last_update: 'Just now',
+      ...nodeData,
     }
-
-    set({ activeScenario: type })
-
-    if (type === 'fire') {
-      // Indroda Park, Gandhinagar Fire
-      const updatedNodes = state.nodes.map((n) => {
-        if (n.node_id === 'S-003') {
-          return { ...n, smoke_aqi: 250.0, temperature_c: 49.2, flame_detected: true, risk_fire: 96 }
-        }
-        return n
-      })
-      set({ nodes: updatedNodes })
-      state.addAlert({
-        id: Date.now(),
-        severity: 'critical',
-        hazard: 'fire',
-        title: 'CRITICAL EMERGENCY — Forest Fire at Indroda Park, Gandhinagar',
-        sensor_id: 'S-003',
-        sensor_name: 'Sensor S-003 (Indroda Nature Park, Gandhinagar)',
-        message: 'Active IR Flame detected. Temperature 49.2°C surging rapidly near Infocity green corridor. Calling Cops (100), Fire (101) & Ambulance (108).',
-        location: 'Indroda Nature Park & Green Belt, Gandhinagar',
-        city: 'Gandhinagar',
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        date: new Date().toISOString().split('T')[0],
-        risk_score: 96,
-        area_probability: 0.95,
-        acknowledged: false,
-      })
-    } else if (type === 'flood') {
-      // Sant Sarovar Dam, Gandhinagar / Sabarmati Flood
-      const updatedNodes = state.nodes.map((n) => {
-        if (n.node_id === 'S-002') {
-          return { ...n, water_level_cm: 152.0, risk_flood: 93, humidity_pct: 95 }
-        }
-        return n
-      })
-      set({ nodes: updatedNodes })
-      state.addAlert({
-        id: Date.now(),
-        severity: 'critical',
-        hazard: 'flood',
-        title: 'CRITICAL EMERGENCY — Sabarmati Dam Overflow (1.52m)',
-        sensor_id: 'S-002',
-        sensor_name: 'Sensor S-002 (Sant Sarovar Dam, Gandhinagar)',
-        message: 'Water level rapidly increasing (+5.2cm/min). Sant Sarovar reservoir exceeded safe capacity. Emergency evacuation declared: Calling Police (100) & NDRF.',
-        location: 'Sant Sarovar Dam / Sabarmati River, Gandhinagar',
-        city: 'Gandhinagar',
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        date: new Date().toISOString().split('T')[0],
-        risk_score: 93,
-        area_probability: 0.92,
-        acknowledged: false,
-      })
-    } else if (type === 'pollution') {
-      // Narol-Vatva, Ahmedabad Chemical AQI Spike
-      const updatedNodes = state.nodes.map((n) => {
-        if (n.node_id === 'S-001') {
-          return { ...n, smoke_aqi: 205.0, risk_pollution: 90 }
-        }
-        return n
-      })
-      set({ nodes: updatedNodes })
-      state.addAlert({
-        id: Date.now(),
-        severity: 'critical',
-        hazard: 'pollution',
-        title: 'CRITICAL WARNING — Hazardous Gas Spill in Narol-Vatva, Ahmedabad',
-        sensor_id: 'S-001',
-        sensor_name: 'Sensor S-001 (Narol-Vatva, Ahmedabad)',
-        message: 'Hazardous VOC / Hydrocarbon gas concentration crossed 205 AQI. Emergency advisory to CPCB & AMC health units.',
-        location: 'Narol-Vatva Industrial Zone, Ahmedabad',
-        city: 'Ahmedabad',
-        time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        date: new Date().toISOString().split('T')[0],
-        risk_score: 90,
-        area_probability: 0.85,
-        acknowledged: false,
-      })
-    }
+    set((s) => ({ nodes: [newNode, ...s.nodes] }))
+    get().addAuditLog('Node Deployed', 'Command Officer', `Provisioned ${newNode.node_id} at ${newNode.location}`)
   },
 
-  // Subtle ticker
-  tickMockData: () => set((state) => ({
-    nodes: state.nodes.map((n) => ({
-      ...n,
-      risk_flood: Math.max(0, Math.min(100, Math.round(n.risk_flood + (Math.random() - 0.49) * 1.5))),
-      risk_fire:  Math.max(0, Math.min(100, Math.round(n.risk_fire  + (Math.random() - 0.49) * 1.5))),
-      risk_pollution: Math.max(0, Math.min(100, Math.round(n.risk_pollution + (Math.random() - 0.49) * 1.5))),
-      water_level_cm: Math.max(0, parseFloat((n.water_level_cm + (Math.random() - 0.48) * 0.4).toFixed(1))),
-      temperature_c:  parseFloat((n.temperature_c + (Math.random() - 0.5) * 0.1).toFixed(1)),
-      humidity_pct:   Math.max(20, Math.min(100, Math.round(n.humidity_pct + (Math.random() - 0.5) * 0.3))),
-      smoke_aqi:      Math.max(0, parseFloat((n.smoke_aqi + (Math.random() - 0.48) * 0.6).toFixed(1))),
-      battery_pct:    Math.max(0, parseFloat((n.battery_pct - Math.random() * 0.002).toFixed(2))),
-    })),
-  })),
+  muteNode: (nodeId) => {
+    set((s) => ({
+      nodes: s.nodes.map((n) => (n.node_id === nodeId ? { ...n, status: n.status === 'muted' ? 'online' : 'muted' } : n)),
+    }))
+    get().addAuditLog('Node Mute Toggled', 'Operator', `Toggled maintenance mute for ${nodeId}`)
+  },
+
+  // ─── Alert Management ──────────────────────────────────────────────────────
+  acknowledgeAlert: (alertId, officerName = 'Officer K. Patel (GSDMA)') => {
+    set((s) => ({
+      alerts: s.alerts.map((a) =>
+        a.id === alertId
+          ? { ...a, acknowledged: true, acknowledged_by: officerName, dispatch_status: 'Acknowledged' }
+          : a
+      ),
+    }))
+    get().addAuditLog('Alert Acknowledged', officerName, `Acknowledged ${alertId} with audit trail`)
+  },
+
+  // ─── Multi-Agency Dispatch Actions ─────────────────────────────────────────
+  advanceDispatchStage: (agencyName) => {
+    const STAGES = ['Not Notified', 'Notified', 'Acknowledged', 'Responding', 'On Scene']
+    set((s) => ({
+      dispatches: s.dispatches.map((d) => {
+        if (d.agency === agencyName) {
+          const currentIndex = STAGES.indexOf(d.status)
+          const nextStage = currentIndex < STAGES.length - 1 ? STAGES[currentIndex + 1] : STAGES[currentIndex]
+          return { ...d, status: nextStage }
+        }
+        return d
+      }),
+    }))
+    get().addAuditLog('Dispatch Stage Advanced', 'Command Dispatcher', `${agencyName} status updated`)
+  },
+
+  escalateAllAgencies: () => {
+    set((s) => ({
+      dispatches: s.dispatches.map((d) => ({
+        ...d,
+        status: d.status === 'Not Notified' ? 'Notified' : d.status === 'Notified' ? 'Acknowledged' : d.status,
+      })),
+    }))
+    get().addAuditLog('Mass Agency Escalation', 'GSDMA Duty Chief', 'All agency channels triggered with High Priority')
+  },
+
+  // ─── Public Citizen Advisories ─────────────────────────────────────────────
+  publishAdvisory: (advisoryDraft) => {
+    const newAdv = {
+      id: `ADV-${String(get().advisories.length + 1).padStart(2, '0')}`,
+      published_at: 'Just now',
+      published_by: 'Authorized GSDMA Officer',
+      ...advisoryDraft,
+    }
+    set((s) => ({ advisories: [newAdv, ...s.advisories] }))
+    get().addAuditLog('Public Advisory Pushed', 'GSDMA Officer', `Broadcasted advisory ${newAdv.id} to citizen portal`)
+  },
+
+  // ─── 5 Scenario Injections ─────────────────────────────────────────────────
+  triggerScenario: (scenarioType) => {
+    set({ activeScenario: scenarioType })
+
+    if (scenarioType === 'flood') {
+      // 1. Sabarmati Flash Flood Surge
+      set((s) => ({
+        nodes: s.nodes.map((n) => {
+          if (n.node_id === 'NODE-01' || n.node_id === 'NODE-02' || n.node_id === 'NODE-05') {
+            return {
+              ...n,
+              water_level_cm: 185,
+              flow_rate_m3s: 14.8,
+              risk_score: 94,
+              severity: 'emergency',
+              local_siren: true, // Offline-first local siren fires immediately!
+            }
+          }
+          if (n.node_id === 'NODE-06') {
+            // Downstream early warning!
+            return {
+              ...n,
+              risk_score: 65,
+              severity: 'warning',
+              water_level_cm: 72,
+            }
+          }
+          return n
+        }),
+        alerts: [
+          {
+            id: `ALT-EMG-${Date.now()}`,
+            node_id: 'NODE-01',
+            category: 'flood',
+            hazard: 'flood',
+            severity: 'emergency',
+            risk_score: 94,
+            title: '🚨 FLASH FLOOD SURGE: Sabarmati River Basin',
+            location: 'Sant Sarovar Dam, Sabarmati, Gandhinagar',
+            landmark_tag: 'Sant Sarovar Dam Spillway',
+            timestamp: 'Just now',
+            acknowledged: false,
+            correlated_nodes: 3,
+            confidence_pct: 95.8,
+            root_cause: 'Instantaneous rate of change +48cm/min across 3 upstream nodes. Sub-5s local siren tripped.',
+            readings_snapshot: { water_level_cm: 185, flow_rate_m3s: 14.8 },
+            dispatch_status: 'Notified',
+          },
+          ...s.alerts,
+        ],
+      }))
+      get().addAuditLog('Scenario Injected', 'Scenario Simulator', 'Flash Flood Sabarmati Upstream Surge triggered')
+    } else if (scenarioType === 'fire') {
+      // 2. Forest Fire Outbreak
+      set((s) => ({
+        nodes: s.nodes.map((n) => {
+          if (n.node_id === 'NODE-03') {
+            return {
+              ...n,
+              flame_detected: true,
+              temperature_c: 56.4,
+              humidity_pct: 16,
+              smoke_aqi: 240,
+              risk_score: 92,
+              severity: 'emergency',
+              local_siren: true,
+            }
+          }
+          return n
+        }),
+        alerts: [
+          {
+            id: `ALT-FIRE-${Date.now()}`,
+            node_id: 'NODE-03',
+            category: 'fire',
+            hazard: 'fire',
+            severity: 'emergency',
+            risk_score: 92,
+            title: '🔥 THERMAL EMERGENCY: Indroda Forest Reserve',
+            location: 'Indroda Nature Park & Deer Forest, Gandhinagar',
+            landmark_tag: 'Indroda Forest Perimeter Sector 9',
+            timestamp: 'Just now',
+            acknowledged: false,
+            correlated_nodes: 2,
+            confidence_pct: 93.2,
+            root_cause: 'Optical IR flame sensor TRUE + ambient temperature 56.4°C + humidity collapse.',
+            readings_snapshot: { temp_c: 56.4, smoke_aqi: 240, humidity_pct: 16 },
+            dispatch_status: 'Notified',
+          },
+          ...s.alerts,
+        ],
+      }))
+      get().addAuditLog('Scenario Injected', 'Scenario Simulator', 'Indroda Forest Fire Outbreak triggered')
+    } else if (scenarioType === 'gas') {
+      // 3. Industrial Chemical / Toxic Gas Leak
+      set((s) => ({
+        nodes: s.nodes.map((n) => {
+          if (n.node_id === 'NODE-08' || n.node_id === 'NODE-14') {
+            return {
+              ...n,
+              gas_ppm: 145,
+              smoke_aqi: 280,
+              risk_score: 89,
+              severity: 'emergency',
+              local_siren: true,
+            }
+          }
+          return n
+        }),
+        alerts: [
+          {
+            id: `ALT-GAS-${Date.now()}`,
+            node_id: 'NODE-08',
+            category: 'chem',
+            hazard: 'chemical',
+            severity: 'emergency',
+            risk_score: 89,
+            title: '☣️ TOXIC CHEMICAL CLOUD: Vatva Industrial GIDC',
+            location: 'Narol-Vatva GIDC Industrial Corridor, Ahmedabad',
+            landmark_tag: 'Chemical Phase-II Buffer',
+            timestamp: 'Just now',
+            acknowledged: false,
+            correlated_nodes: 2,
+            confidence_pct: 91.5,
+            root_cause: 'Photoionization gas detector registered toxic VOC plume (145 ppm) with prevailing NE wind vector.',
+            readings_snapshot: { gas_ppm: 145, smoke_aqi: 280 },
+            dispatch_status: 'Notified',
+          },
+          ...s.alerts,
+        ],
+      }))
+      get().addAuditLog('Scenario Injected', 'Scenario Simulator', 'Vatva Chemical Leak HAZMAT scenario triggered')
+    } else if (scenarioType === 'false_positive') {
+      // 4. False-Positive Edge Model Suppression Test
+      const newSupp = {
+        id: `SUP-${Date.now()}`,
+        node_id: 'NODE-09',
+        time: 'Just now',
+        sensor: 'Optical Smoke AQI',
+        spike_val: 'Instant 210 AQI (Transient)',
+        reason: 'Temporary municipal leaf burning smoke plume drifted over node. Adjacent node NODE-07 and water sensors registered zero corroboration. Edge model suppressed false alarm dispatch.',
+        action: 'Suppressed on-device (Zero emergency dispatch)',
+      }
+      set((s) => ({
+        suppressionLog: [newSupp, ...s.suppressionLog],
+      }))
+      get().addAuditLog('False-Positive Suppressed', 'Qualcomm Edge Model', 'Single-node transient correctly blocked from alerting')
+    } else if (scenarioType === 'lora_drill') {
+      // 5. Network Degradation / LoRa Mesh Drill
+      set((s) => ({
+        nodes: s.nodes.map((n) => ({
+          ...n,
+          connectivity: 'LoRa Mesh Fallback (WAN Outage)',
+          status: 'degraded',
+        })),
+      }))
+      get().addAuditLog('Network Drill Initiated', 'System Admin', 'WAN severed: entire fleet switched to LoRa peer-to-peer mesh')
+    } else if (scenarioType === 'reset' || scenarioType === null) {
+      // Reset to safe baseline
+      set({
+        activeScenario: null,
+        nodes: INITIAL_NODES,
+      })
+      get().addAuditLog('Simulation Reset', 'Operator', 'Returned fleet to normal baseline state')
+    }
+  },
 }))
 
+// ─── Authentication Store ─────────────────────────────────────────────────────
 export const useAuthStore = create((set) => ({
+  user: {
+    id: 1,
+    name: 'Disaster Relief Duty Officer',
+    email: 'authority@aegisnet.local',
+    role: 'GSDMA Officer',
+    agency: 'Gujarat State Disaster Management Authority',
+  },
   token: 'demo-token',
-  refreshToken: 'demo-refresh',
-  user: { id: 1, email: 'authority@aegisnet.local', name: 'GSDMA Disaster Officer', role: 'authority' },
-  setToken:   (token)        => set({ token }),
-  setAuth:    (token, refreshToken, user) => set({ token, refreshToken, user }),
-  logout:     ()             => set({ token: null, refreshToken: null, user: null }),
+  isAuthenticated: true,
+
+  setAuth: (user, token) => set({ user, token, isAuthenticated: true }),
+  logout: () => set({ user: null, token: null, isAuthenticated: false }),
 }))

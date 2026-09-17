@@ -1,165 +1,206 @@
-// pages/AlertsPage.jsx — Immediate Warnings with Clean Cards & Pull-Down Dispatch Details
-
+// pages/AlertsPage.jsx — Immediate Warnings, GSDMA Triage Queue & Audit Acknowledgment
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
-import { useStore } from '../store/useStore'
+import { useNavigate } from 'react-router-dom'
+import { useStore, SENSOR_CATEGORIES } from '../store/useStore'
 import clsx from 'clsx'
+
+const SEVERITY_TABS = ['All', 'Emergency', 'Warning', 'Watch', 'Advisory', 'Resolved']
 
 export default function AlertsPage() {
   const navigate = useNavigate()
   const alerts = useStore((s) => s.alerts)
   const acknowledgeAlert = useStore((s) => s.acknowledgeAlert)
-  const [filterSeverity, setFilterSeverity] = useState('All')
-  const [expandedAlertIds, setExpandedAlertIds] = useState({})
+  const [activeTab, setActiveTab] = useState('All')
+  const [selectedAlertForAck, setSelectedAlertForAck] = useState(null)
+  const [officerName, setOfficerName] = useState('Officer K. Patel (GSDMA)')
 
-  const toggleExpand = (id) => {
-    setExpandedAlertIds((prev) => ({ ...prev, [id]: !prev[id] }))
-  }
+  // Filter alerts by tab
+  const filteredAlerts = alerts.filter((a) => {
+    if (activeTab === 'All') return true
+    if (activeTab === 'Resolved') return a.acknowledged
+    return a.severity.toLowerCase() === activeTab.toLowerCase()
+  })
 
   const unackCount = alerts.filter((a) => !a.acknowledged).length
 
-  const filteredAlerts = alerts.filter((a) => {
-    if (filterSeverity === 'All') return true
-    if (filterSeverity === 'Critical') return a.severity === 'critical' || a.risk_score >= 70
-    if (filterSeverity === 'Warning') return a.severity === 'warning' || (a.risk_score >= 40 && a.risk_score < 70)
-    if (filterSeverity === 'Unacknowledged') return !a.acknowledged
-    return true
-  })
+  const handleConfirmAck = () => {
+    if (!selectedAlertForAck) return
+    acknowledgeAlert(selectedAlertForAck.id, officerName)
+    setSelectedAlertForAck(null)
+  }
 
   return (
-    <div className="max-w-6xl mx-auto px-4 py-5 bg-[#141A16] text-[#EDEDE9] space-y-4 font-mono">
-      {/* ─── Top Header Strip ────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-[#1F2921] border border-[#2D3B2F] px-5 py-3.5 rounded-2xl shadow-sm">
-        <div className="flex items-center gap-2.5">
-          <span className="text-2xl">🚨</span>
+    <div className="max-w-7xl mx-auto px-4 lg:px-6 py-6 space-y-6 font-sans">
+      {/* ─── Header Strip ─────────────────────────────────────────────── */}
+      <div className="bg-white border border-[#CBD5E1] rounded-2xl p-5 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-11 h-11 rounded-xl bg-[#FDECEC] text-[#C62828] flex items-center justify-center text-2xl font-bold">
+            🚨
+          </div>
           <div>
-            <h1 className="text-xl font-bold text-[#EDEDE9]">
-              Immediate Warnings & <span className="text-[#D97706]">Alerts</span>
+            <h1 className="text-xl font-bold text-[#0F172A]">
+              Immediate Warnings & <span className="text-[#C62828]">Alerts Queue</span>
             </h1>
-            <p className="text-[11px] text-[#6B7280]">
-              Pending Emergency Escalations & Gujarat Authority Dispatch
+            <p className="text-xs text-[#475569] font-mono">
+              Action-oriented triage queue for multi-channel hazard incidents & GSDMA escalation
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 bg-[#141A16] border border-[#2D3B2F] px-3 py-1.5 rounded-xl text-xs">
-          <span className="text-[#6B7280]">Pending Acknowledgment:</span>
-          <span className={clsx('font-bold', unackCount > 0 ? 'text-[#EF4444]' : 'text-[#22C55E]')}>
-            {unackCount}
-          </span>
+        <div className="flex items-center gap-3">
+          <div className="bg-[#F7F9FB] border border-[#CBD5E1] px-3.5 py-1.5 rounded-xl text-xs font-mono">
+            <span className="text-[#475569]">Pending Acknowledgment:</span>{' '}
+            <b className={clsx(unackCount > 0 ? 'text-[#C62828]' : 'text-[#2E7D32]')}>
+              {unackCount} incidents
+            </b>
+          </div>
         </div>
       </div>
 
-      {/* Filter Tabs */}
-      <div className="flex items-center gap-1.5 flex-wrap text-xs">
-        {['All', 'Unacknowledged', 'Critical', 'Warning'].map((f) => (
-          <button
-            key={f}
-            onClick={() => setFilterSeverity(f)}
-            className={clsx(
-              'px-3 py-1 rounded-lg transition-colors border',
-              filterSeverity === f
-                ? 'bg-[#14532D] text-[#D97706] border-[#D97706]/40 font-bold'
-                : 'bg-[#1F2921] text-[#6B7280] border-[#2D3B2F] hover:text-[#EDEDE9]'
-            )}
-          >
-            {f}
-          </button>
-        ))}
+      {/* ─── Severity Filter Tabs ───────────────────────────────────────── */}
+      <div className="bg-white border border-[#E3E8EF] rounded-2xl p-2 shadow-xs flex items-center gap-1.5 overflow-x-auto text-xs font-mono">
+        {SEVERITY_TABS.map((tab) => {
+          const count =
+            tab === 'All'
+              ? alerts.length
+              : tab === 'Resolved'
+              ? alerts.filter((a) => a.acknowledged).length
+              : alerts.filter((a) => a.severity.toLowerCase() === tab.toLowerCase()).length
+
+          return (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={clsx(
+                'px-3.5 py-2 rounded-xl transition-colors font-medium flex items-center gap-2 whitespace-nowrap',
+                activeTab === tab
+                  ? 'bg-[#0B6E4F] text-white font-bold shadow-xs'
+                  : 'text-[#475569] hover:bg-[#F7F9FB]'
+              )}
+            >
+              <span>{tab}</span>
+              <span
+                className={clsx(
+                  'px-1.5 py-0.2 rounded-full text-[10px] font-bold',
+                  activeTab === tab ? 'bg-white/20 text-white' : 'bg-[#EEF2F6] text-[#475569]'
+                )}
+              >
+                {count}
+              </span>
+            </button>
+          )
+        })}
       </div>
 
-      {/* ─── Streamlined Alert Cards with Pull-Down Details ───────────────── */}
-      <div className="space-y-3">
+      {/* ─── Alerts Incident List ───────────────────────────────────────── */}
+      <div className="space-y-4">
         {filteredAlerts.length === 0 ? (
-          <div className="bg-[#1F2921] border border-[#2D3B2F] rounded-2xl p-10 text-center text-[#6B7280]">
-            <span className="text-3xl block mb-1 text-[#22C55E]">✓</span>
-            <div className="text-sm font-bold text-[#EDEDE9]">No Active Warnings in Category</div>
-            <p className="text-xs mt-0.5">All monitored sensors within safe thresholds</p>
+          <div className="bg-white border border-[#E3E8EF] rounded-2xl p-12 text-center text-xs text-[#475569] space-y-1">
+            <span className="text-3xl block mb-2 text-[#2E7D32]">✓</span>
+            <div className="font-bold text-[#0F172A] text-sm">No Active Incidents in Category</div>
+            <p>All environmental telemetry streams operating within seasonal thresholds.</p>
           </div>
         ) : (
           filteredAlerts.map((alert) => {
-            const isCritical = alert.severity === 'critical' || alert.risk_score >= 70
-            const isExpanded = !!expandedAlertIds[alert.id]
-
-            const cardBorder = isCritical
-              ? 'border border-[#EF4444]/60 bg-[#1F2921]'
-              : 'border border-[#F59E0B]/60 bg-[#1F2921]'
-
-            const severityBadge = isCritical
-              ? 'bg-[#EF4444]/20 text-[#EF4444] border border-[#EF4444]'
-              : 'bg-[#F59E0B]/20 text-[#F59E0B] border border-[#F59E0B]'
+            const isEmergency = alert.severity === 'emergency'
+            const isWarning = alert.severity === 'warning'
+            const catInfo = SENSOR_CATEGORIES.find((c) => c.id === alert.category)
 
             return (
               <div
                 key={alert.id}
-                className={clsx('rounded-2xl p-4 shadow-md transition-all', cardBorder)}
+                className={clsx(
+                  'bg-white rounded-2xl p-5 shadow-sm transition-all border space-y-3',
+                  isEmergency
+                    ? 'border-l-4 border-l-[#C62828] border-t-[#CBD5E1] border-r-[#CBD5E1] border-b-[#CBD5E1]'
+                    : isWarning
+                    ? 'border-l-4 border-l-[#E0621A] border-t-[#E3E8EF] border-r-[#E3E8EF] border-b-[#E3E8EF]'
+                    : 'border-[#E3E8EF]'
+                )}
               >
-                {/* Primary Row: Clean & Uncluttered */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <span className="text-xl">{isCritical ? '🔴' : '🟠'}</span>
+                {/* Header Row */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#E3E8EF] pb-3">
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-xl">{catInfo?.icon || '🚨'}</span>
                     <div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className={clsx('text-[10px] font-bold px-2 py-0.5 rounded uppercase', severityBadge)}>
-                          {isCritical ? 'CRITICAL' : 'WARNING'}
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono font-bold text-xs text-[#0F172A]">{alert.id}</span>
+                        <span
+                          className={clsx(
+                            'px-2 py-0.5 rounded-full text-[10px] font-mono font-bold uppercase',
+                            isEmergency
+                              ? 'bg-[#FDECEC] text-[#C62828]'
+                              : isWarning
+                              ? 'bg-[#FFFBEB] text-[#E0621A]'
+                              : 'bg-[#E8F5E9] text-[#2E7D32]'
+                          )}
+                        >
+                          {alert.severity}
                         </span>
-                        <h3 className="font-bold text-sm text-[#EDEDE9]">{alert.title}</h3>
+                        <span className="text-[11px] text-[#475569] font-mono">
+                          Confidence: <b className="text-[#0B6E4F]">{alert.confidence_pct}%</b>
+                        </span>
                       </div>
-                      <div className="text-[11px] text-[#6B7280] mt-0.5">
-                        Sensor: <b className="text-[#EDEDE9]">{alert.sensor_id || alert.node_id}</b> • Location: <b className="text-[#EDEDE9]">{alert.location}</b> • Time: <b className="text-[#D97706]">{alert.time}</b>
-                      </div>
+                      <h2 className="text-sm font-bold text-[#0F172A] mt-0.5">{alert.title}</h2>
                     </div>
                   </div>
 
-                  {/* Actions & Pull-Down Toggle */}
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <button
-                      onClick={() => navigate('/map')}
-                      className="text-xs bg-[#0B3820] hover:bg-[#14532D] text-[#D97706] font-bold px-3 py-1.5 rounded-lg border border-[#D97706]/40 transition-colors"
-                    >
-                      View on Map
-                    </button>
-
-                    {!alert.acknowledged ? (
-                      <button
-                        onClick={() => acknowledgeAlert(alert.id)}
-                        className="text-xs bg-[#14532D] hover:bg-[#0B3820] text-[#22C55E] font-bold px-3 py-1.5 rounded-lg border border-[#22C55E]/40 transition-colors"
-                      >
-                        ✓ Acknowledge
-                      </button>
-                    ) : (
-                      <span className="text-xs text-[#22C55E] font-bold bg-[#22C55E]/10 px-2 py-1 rounded border border-[#22C55E]/30">
-                        ✓ Logged
-                      </span>
-                    )}
-
-                    {/* Pull-Down Button */}
-                    <button
-                      onClick={() => toggleExpand(alert.id)}
-                      className="text-xs text-[#D97706] hover:text-white px-2.5 py-1 rounded hover:bg-[#141A16] transition-colors flex items-center gap-1.5"
-                    >
-                      <span>{isExpanded ? 'Less' : 'Pull Down Dispatch Details'}</span>
-                      <span className={clsx('pulldown-chevron text-[9px]', isExpanded && 'open')}>▼</span>
-                    </button>
+                  <div className="text-right text-xs font-mono text-[#475569]">
+                    <div>Detected: <b>{alert.timestamp}</b></div>
+                    <div className="text-[11px] text-[#0B6E4F] font-semibold">
+                      Correlated: {alert.correlated_nodes} Nodes
+                    </div>
                   </div>
                 </div>
 
-                {/* Pull-Down Drawer for Multi-Agency Call & Email Records with Smooth Animation */}
-                <div className={clsx('pulldown-wrapper', isExpanded && 'open')}>
-                  <div className="pulldown-content">
-                    <div className="mt-3 pt-3 border-t border-[#2D3B2F] space-y-2 animate-pulldown text-xs">
-                      <div className="bg-[#141A16] p-2.5 rounded-xl border border-[#2D3B2F] text-slate-300 font-sans">
-                        {alert.message}
-                      </div>
+                {/* Body Details */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+                  <div className="bg-[#F7F9FB] border border-[#E3E8EF] p-3 rounded-xl space-y-1">
+                    <span className="text-[10px] font-mono uppercase text-[#475569] font-bold">Affected Landmark</span>
+                    <div className="font-semibold text-[#0F172A]">{alert.location}</div>
+                    <div className="text-[11px] text-[#0B6E4F] font-mono">{alert.landmark_tag}</div>
+                  </div>
 
-                      <div className="bg-[#141A16] p-2.5 rounded-xl border border-[#2D3B2F] space-y-1 text-[11px]">
-                        <div className="text-[#D97706] font-bold">🚨 Emergency Dispatch Protocols Executed:</div>
-                        <div className="text-[#60A5FA]">✓ {alert.callCops || 'Police Control Room 100/112 Alerted'}</div>
-                        <div className="text-[#F97316]">✓ {alert.callFire || 'Fire Station 101 Alerted'}</div>
-                        <div className="text-[#EF4444]">✓ {alert.callAmbulance || '108 Ambulance Unit Dispatched'}</div>
-                        <div className="text-[#22C55E]">✓ {alert.mailRecipient || 'GSDMA Govt Mail Dispatched'}</div>
-                      </div>
-                    </div>
+                  <div className="bg-[#F7F9FB] border border-[#E3E8EF] p-3 rounded-xl space-y-1 md:col-span-2">
+                    <span className="text-[10px] font-mono uppercase text-[#475569] font-bold">Root Cause Analysis</span>
+                    <p className="text-[#475569] leading-relaxed">{alert.root_cause}</p>
+                  </div>
+                </div>
+
+                {/* Actions Footer */}
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
+                  <div className="text-xs font-mono text-[#475569] flex items-center gap-2">
+                    <span>Dispatch Status:</span>
+                    <b className="text-[#0F172A] bg-[#EEF2F6] px-2 py-0.5 rounded">
+                      {alert.dispatch_status || 'Delivered'}
+                    </b>
+                    {alert.acknowledged_by && (
+                      <span className="text-[10px] text-[#2E7D32]">
+                        (Verified by {alert.acknowledged_by})
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {!alert.acknowledged ? (
+                      <button
+                        onClick={() => setSelectedAlertForAck(alert)}
+                        className="bg-[#0B6E4F] hover:bg-[#08573F] text-white text-xs font-mono font-bold px-3.5 py-1.5 rounded-xl transition-colors shadow-xs"
+                      >
+                        ✓ Acknowledge Alert
+                      </button>
+                    ) : (
+                      <span className="text-xs text-[#2E7D32] font-mono font-bold bg-[#E8F5E9] px-3 py-1.5 rounded-xl">
+                        ✓ Acknowledged
+                      </span>
+                    )}
+
+                    <button
+                      onClick={() => navigate('/console')}
+                      className="bg-[#0F172A] hover:bg-[#1E293B] text-white text-xs font-mono font-bold px-3.5 py-1.5 rounded-xl transition-colors shadow-xs"
+                    >
+                      Open Command Console →
+                    </button>
                   </div>
                 </div>
               </div>
@@ -167,6 +208,47 @@ export default function AlertsPage() {
           })
         )}
       </div>
+
+      {/* ─── Acknowledgment Audit Modal ─────────────────────────────────── */}
+      {selectedAlertForAck && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-xs p-4 animate-fade-in font-sans">
+          <div className="bg-white border border-[#CBD5E1] rounded-2xl p-6 w-full max-w-md shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-[#E3E8EF] pb-3">
+              <h3 className="font-bold text-base text-[#0F172A]">Incident Acknowledgment Audit</h3>
+              <button onClick={() => setSelectedAlertForAck(null)} className="text-[#475569]">✕</button>
+            </div>
+
+            <p className="text-xs text-[#475569] leading-relaxed">
+              Acknowledging logs your official ID to the GSDMA immutable incident register and silences acoustic siren queues.
+            </p>
+
+            <div className="space-y-2 text-xs">
+              <label className="text-[#475569] font-mono block font-bold">Duty Officer Credential</label>
+              <input
+                type="text"
+                value={officerName}
+                onChange={(e) => setOfficerName(e.target.value)}
+                className="w-full bg-[#F7F9FB] border border-[#CBD5E1] rounded-lg p-2 font-mono text-[#0F172A]"
+              />
+            </div>
+
+            <div className="pt-2 flex gap-2">
+              <button
+                onClick={handleConfirmAck}
+                className="flex-1 bg-[#0B6E4F] hover:bg-[#08573F] text-white font-bold py-2 rounded-xl text-xs font-mono shadow-xs"
+              >
+                Confirm Acknowledgment
+              </button>
+              <button
+                onClick={() => setSelectedAlertForAck(null)}
+                className="px-4 bg-[#F7F9FB] text-[#475569] rounded-xl text-xs font-mono border border-[#CBD5E1]"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
