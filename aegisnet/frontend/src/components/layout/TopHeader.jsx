@@ -24,7 +24,7 @@ export default function TopHeader({ onOpenCommandPalette, onOpenScenarioDrawer }
   const totalCount       = nodes.length
 
   const NAV_LINKS = [
-    { to: '/dashboard', label: 'Dashboard',    icon: '⊞',  aliases: ['/'] },
+    { to: '/dashboard', label: 'Dashboard',    icon: '⊞'   },
     { to: '/map',       label: 'Live Map',      icon: '◉'  },
     { to: '/history',   label: 'History',       icon: '≡'  },
     { to: '/analysis',  label: 'AI Analysis',   icon: '◈'  },
@@ -33,6 +33,7 @@ export default function TopHeader({ onOpenCommandPalette, onOpenScenarioDrawer }
     { to: '/public',    label: 'Public Portal', icon: '⊕'  },
     { to: '/fleet',     label: 'Fleet',         icon: '◎'  },
     { to: '/settings',  label: 'Settings',      icon: '◌'  },
+    { to: '/landing',   label: 'Landing',       icon: '🌐' },
   ]
 
   useEffect(() => {
@@ -49,7 +50,7 @@ export default function TopHeader({ onOpenCommandPalette, onOpenScenarioDrawer }
   }, [])
 
   return (
-    <header className="sticky top-0 z-40 select-none">
+    <header className="sticky top-0 z-[1050] select-none w-full">
       {/* ── TOP BAR — dark slate brand strip ──────────────────────────────── */}
       <div className="bg-slate-900 border-b border-slate-700/80 shadow-lg">
         <div className="h-[60px] px-4 lg:px-6 flex items-center justify-between gap-3">
@@ -225,7 +226,7 @@ export default function TopHeader({ onOpenCommandPalette, onOpenScenarioDrawer }
 
                   <button
                     type="button"
-                    onClick={() => { setProfileOpen(false); logout(); navigate('/login') }}
+                    onClick={() => { setProfileOpen(false); logout(); navigate('/') }}
                     className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-red-600 hover:bg-red-50 font-bold transition-colors"
                   >
                     <span>🚪</span>

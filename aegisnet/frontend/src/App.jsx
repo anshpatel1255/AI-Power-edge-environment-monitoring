@@ -1,6 +1,7 @@
 // App.jsx — AegisNet (EcoMonitor) v2.0 Application Shell (Complete Top Navbar, No Sidebar)
 import { useState } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import clsx from 'clsx'
 
 // Layout Components
 import TopHeader from './components/layout/TopHeader'
@@ -23,46 +24,45 @@ import FleetPage from './pages/FleetPage'
 import SettingsPage from './pages/SettingsPage'
 import NodeDetail from './pages/NodeDetail'
 import Login from './pages/Login'
+import LandingPage from './pages/LandingPage'
+import { useAuthStore } from './store/useStore'
 
 function AppLayout({ children }) {
   const location = useLocation()
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const [cmdOpen, setCmdOpen] = useState(false)
   const [scenarioOpen, setScenarioOpen] = useState(false)
 
   const isPublicRoute = location.pathname === '/public'
   const isLoginRoute = location.pathname === '/login'
+  const isLandingRoute = location.pathname === '/landing' || (location.pathname === '/' && !isAuthenticated)
   const isMapRoute = location.pathname === '/map'
 
-  // Login page — completely standalone, no header/footer/overlays
-  if (isLoginRoute) {
+  // Standalone pages — completely standalone, no header/footer/overlays
+  if (isLoginRoute || isLandingRoute) {
     return (
-      <div className="min-h-screen bg-slate-900 text-slate-900 font-sans">
+      <div className="min-h-screen bg-slate-950 text-slate-100 font-sans">
         {children}
-      </div>
-    )
-  }
-
-  if (isPublicRoute) {
-    return (
-      <div className="min-h-screen bg-slate-50 text-slate-900">
-        {children}
-        <CommandPalette isOpen={cmdOpen} onClose={() => setCmdOpen(false)} />
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans">
-      {/* Complete Top Navbar — No Left Sidebar */}
+    <div className={clsx(
+      'bg-slate-50 text-slate-900 flex flex-col font-sans',
+      isMapRoute ? 'h-screen overflow-hidden' : 'min-h-screen'
+    )}>
+      {/* Complete Top Navbar — Visible on all pages including Map & Public Portal */}
       <TopHeader
         onOpenCommandPalette={() => setCmdOpen(true)}
         onOpenScenarioDrawer={() => setScenarioOpen(true)}
       />
 
       {/* Full Width Main Content */}
-      <main className="flex-1 w-full">
+      <main className={clsx('flex-1 w-full', isMapRoute && 'overflow-hidden flex flex-col')}>
         {children}
       </main>
+
 
       {/* Footer on non-map screens */}
       {!isMapRoute && <Footer />}
@@ -76,11 +76,20 @@ function AppLayout({ children }) {
 }
 
 export default function App() {
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+
   return (
     <BrowserRouter>
       <AppLayout>
         <Routes>
-          <Route path="/" element={<Dashboard />} />
+          {/* Direct Landing Page — opened on root when not logged in */}
+          <Route
+            path="/"
+            element={
+              isAuthenticated ? <Navigate to="/dashboard" replace /> : <LandingPage />
+            }
+          />
+          <Route path="/landing" element={<LandingPage />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/map" element={<MapPage />} />
           <Route path="/history" element={<HistoryPage />} />
@@ -92,7 +101,12 @@ export default function App() {
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/nodes/:id" element={<NodeDetail />} />
           <Route path="/login" element={<Login />} />
-          <Route path="*" element={<Navigate to="/dashboard" replace />} />
+          <Route
+            path="*"
+            element={
+              <Navigate to={isAuthenticated ? "/dashboard" : "/"} replace />
+            }
+          />
         </Routes>
       </AppLayout>
     </BrowserRouter>

@@ -1015,17 +1015,26 @@ export const useStore = create((set, get) => ({
 }))
 
 // ─── Authentication Store ─────────────────────────────────────────────────────
-export const useAuthStore = create((set) => ({
-  user: {
-    id: 1,
-    name: 'Disaster Relief Duty Officer',
-    email: 'authority@aegisnet.local',
-    role: 'GSDMA Officer',
-    agency: 'Gujarat State Disaster Management Authority',
-  },
-  token: 'demo-token',
-  isAuthenticated: true,
+const savedToken = typeof window !== 'undefined' ? localStorage.getItem('aegisnet_token') : null
+const savedUser = typeof window !== 'undefined' ? JSON.parse(localStorage.getItem('aegisnet_user') || 'null') : null
 
-  setAuth: (user, token) => set({ user, token, isAuthenticated: true }),
-  logout: () => set({ user: null, token: null, isAuthenticated: false }),
+export const useAuthStore = create((set) => ({
+  user: savedUser,
+  token: savedToken,
+  isAuthenticated: !!savedToken,
+
+  setAuth: (user, token) => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('aegisnet_token', token)
+      localStorage.setItem('aegisnet_user', JSON.stringify(user))
+    }
+    set({ user, token, isAuthenticated: true })
+  },
+  logout: () => {
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('aegisnet_token')
+      localStorage.removeItem('aegisnet_user')
+    }
+    set({ user: null, token: null, isAuthenticated: false })
+  },
 }))

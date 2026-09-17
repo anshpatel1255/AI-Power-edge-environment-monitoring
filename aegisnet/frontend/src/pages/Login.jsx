@@ -143,16 +143,38 @@ export default function Login() {
       <div className="flex-1 bg-white flex flex-col">
 
         {/* Mobile brand strip */}
-        <div className="lg:hidden flex items-center gap-2.5 px-6 py-4 border-b border-slate-100">
-          <div className="w-8 h-8 rounded-lg bg-emerald-700 flex items-center justify-center text-base">🛡️</div>
-          <span className="text-slate-900 font-bold text-sm">
-            AegisNet <span className="text-emerald-700">GSDMA</span>
-          </span>
+        <div className="lg:hidden flex items-center justify-between px-6 py-4 border-b border-slate-100">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-emerald-700 flex items-center justify-center text-base">🛡️</div>
+            <span className="text-slate-900 font-bold text-sm">
+              AegisNet <span className="text-emerald-700">GSDMA</span>
+            </span>
+          </div>
+          <Link
+            to="/"
+            className="inline-flex items-center gap-1 text-xs text-slate-500 hover:text-emerald-700 font-semibold transition-colors"
+          >
+            <span>←</span>
+            <span>Landing Page</span>
+          </Link>
         </div>
 
         {/* Vertically centered form */}
         <div className="flex-1 flex items-center justify-center px-6 py-10">
-          <div className="w-full max-w-sm space-y-7">
+          <div className="w-full max-w-sm space-y-6">
+
+            {/* Back to Landing Page */}
+            <div>
+              <Link
+                to="/"
+                className="inline-flex items-center gap-2 text-xs font-semibold text-slate-500 hover:text-emerald-700 transition-all group"
+              >
+                <span className="w-7 h-7 rounded-full flex items-center justify-center border border-slate-200 bg-slate-50 group-hover:border-emerald-500 group-hover:bg-emerald-50 text-slate-600 group-hover:text-emerald-700 transition-all shadow-xs">
+                  ←
+                </span>
+                <span>Back to Landing Page</span>
+              </Link>
+            </div>
 
             {/* Header */}
             <div className="space-y-1">
