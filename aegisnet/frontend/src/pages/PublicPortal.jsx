@@ -69,18 +69,18 @@ export default function PublicPortal() {
   const currentText = activeAdvisory ? activeAdvisory[language] || activeAdvisory.en : null
 
   return (
-    <div className="min-h-screen bg-[#F7F9FB] text-[#0F172A] font-sans pb-16">
-      {/* ─── Top Citizen Header ─────────────────────────────────────────── */}
-      <header className="bg-white border-b border-[#E3E8EF] px-4 lg:px-8 py-3.5 flex items-center justify-between sticky top-0 z-40 shadow-xs">
+    <div className="text-[#0F172A] font-sans pb-16 animate-slide-up">
+      {/* ─── Top Citizen Sub-Bar (Below TopHeader) ─────────────────────────── */}
+      <div className="bg-white/95 backdrop-blur-xs border-b border-slate-200 px-4 lg:px-8 py-2.5 flex items-center justify-between shadow-xs">
         <div className="flex items-center gap-2.5">
-          <div className="w-9 h-9 rounded-xl bg-[#0B6E4F] text-white flex items-center justify-center font-bold text-lg">
+          <div className="w-8 h-8 rounded-xl bg-emerald-700 text-white flex items-center justify-center font-bold text-base shadow-sm">
             🌍
           </div>
           <div>
-            <div className="font-bold text-[#0F172A] text-sm sm:text-base leading-tight">
-              Eco<span className="text-[#0B6E4F]">Monitor</span> Citizen Safety
+            <div className="font-bold text-slate-900 text-sm sm:text-base leading-tight">
+              Eco<span className="text-emerald-700">Monitor</span> Citizen Safety
             </div>
-            <div className="text-[10px] text-[#475569] font-mono">
+            <div className="text-[10px] text-slate-500 font-mono">
               GSDMA Public Environmental Network
             </div>
           </div>
@@ -89,12 +89,12 @@ export default function PublicPortal() {
         {/* Right: Language Switcher & Agency Link */}
         <div className="flex items-center gap-2 sm:gap-3">
           {/* Language Switcher */}
-          <div className="flex bg-[#F7F9FB] border border-[#CBD5E1] rounded-lg p-0.5 text-xs font-medium">
+          <div className="flex bg-slate-100 border border-slate-300 rounded-lg p-0.5 text-xs font-medium">
             <button
               onClick={() => setLanguage('en')}
               className={clsx(
-                'px-2 py-1 rounded transition-colors',
-                language === 'en' ? 'bg-white font-bold text-[#0B6E4F] shadow-xs' : 'text-[#475569]'
+                'px-2.5 py-1 rounded transition-colors',
+                language === 'en' ? 'bg-white font-bold text-emerald-700 shadow-xs' : 'text-slate-600 hover:text-slate-900'
               )}
             >
               English
@@ -102,8 +102,8 @@ export default function PublicPortal() {
             <button
               onClick={() => setLanguage('gu')}
               className={clsx(
-                'px-2 py-1 rounded transition-colors',
-                language === 'gu' ? 'bg-white font-bold text-[#0B6E4F] shadow-xs' : 'text-[#475569]'
+                'px-2.5 py-1 rounded transition-colors',
+                language === 'gu' ? 'bg-white font-bold text-emerald-700 shadow-xs' : 'text-slate-600 hover:text-slate-900'
               )}
             >
               ગુજરાતી
@@ -111,8 +111,8 @@ export default function PublicPortal() {
             <button
               onClick={() => setLanguage('hi')}
               className={clsx(
-                'px-2 py-1 rounded transition-colors',
-                language === 'hi' ? 'bg-white font-bold text-[#0B6E4F] shadow-xs' : 'text-[#475569]'
+                'px-2.5 py-1 rounded transition-colors',
+                language === 'hi' ? 'bg-white font-bold text-emerald-700 shadow-xs' : 'text-slate-600 hover:text-slate-900'
               )}
             >
               हिन्दी
@@ -120,13 +120,14 @@ export default function PublicPortal() {
           </div>
 
           <Link
-            to="/login"
-            className="hidden sm:inline-block text-xs font-mono font-semibold text-[#0B6E4F] hover:underline"
+            to="/dashboard"
+            className="hidden sm:inline-block text-xs font-mono font-semibold text-emerald-700 hover:underline"
           >
-            {t.backToAgency}
+            ← Command Center
           </Link>
         </div>
-      </header>
+      </div>
+
 
       {/* ─── Main Content Container ─────────────────────────────────────── */}
       <main className="max-w-3xl mx-auto px-4 py-8 space-y-6">

@@ -33,9 +33,9 @@ export default function MapPage() {
   }
 
   return (
-    <div className="relative h-[calc(100vh-64px)] w-full overflow-hidden font-sans">
+    <div className="relative flex-1 h-full w-full overflow-hidden font-sans">
       {/* ─── Top Floating Filter Strip ──────────────────────────────────── */}
-      <div className="absolute top-4 left-4 right-4 z-20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pointer-events-none">
+      <div className="absolute top-3 left-4 right-4 z-[500] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 pointer-events-none">
         {/* Left: Category Filter Pills */}
         <div className="pointer-events-auto bg-white/95 backdrop-blur-xs border border-[#CBD5E1] rounded-2xl p-1.5 shadow-md flex items-center gap-1 overflow-x-auto max-w-full">
           <button
@@ -101,7 +101,7 @@ export default function MapPage() {
       </div>
 
       {/* ─── Bottom-Left: 24h Time Scrubber Slider ──────────────────────── */}
-      <div className="absolute bottom-6 left-4 z-20 bg-white/95 backdrop-blur-xs border border-[#CBD5E1] rounded-2xl p-4 shadow-lg w-80 space-y-2 pointer-events-auto font-sans">
+      <div className="absolute bottom-6 left-4 z-[500] bg-white/95 backdrop-blur-xs border border-[#CBD5E1] rounded-2xl p-4 shadow-lg w-80 space-y-2 pointer-events-auto font-sans">
         <div className="flex items-center justify-between text-xs font-mono">
           <span className="font-bold text-[#0F172A] flex items-center gap-1.5">
             <span>⏱️</span> 24h Spatial Event Replay
