@@ -41,6 +41,15 @@ module.exports = function startMqtt() {
   return client;
 };
 
+// Map ESP32 node_id prefix to human-readable name and category
+function resolveNodeMeta(nodeId, data) {
+  const id = nodeId.toUpperCase();
+  if (id.includes('FLOOD'))      return { name: 'ESP32 Flood Sensor Node', category: 'flood',     lat: 23.0300, lng: 72.5800 };
+  if (id.includes('COTEMP'))     return { name: 'ESP32 CO+Temperature Node', category: 'fire',    lat: 23.0310, lng: 72.5810 };
+  if (id.includes('POLLUTION'))  return { name: 'ESP32 Pollution Monitor',   category: 'air',     lat: 23.0320, lng: 72.5820 };
+  return { name: `ESP32 Node (${nodeId})`, category: 'flood', lat: 23.0300, lng: 72.5800 };
+}
+
 async function handleTelemetry(nodeId, data) {
   const {
     water_level_cm, flame_detected, smoke_aqi,
@@ -49,32 +58,84 @@ async function handleTelemetry(nodeId, data) {
     battery_pct, rssi, solar_charging,
   } = data;
 
-  const result = await db.query(
-    `INSERT INTO sensor_readings
-       (node_id, water_level_cm, flame_detected, smoke_aqi,
-        temperature_c, humidity_pct, soil_moisture,
-        risk_flood, risk_fire, risk_pollution, raw_payload)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
-     RETURNING *`,
-    [nodeId, water_level_cm, flame_detected, smoke_aqi,
-     temperature_c, humidity_pct, soil_moisture,
-     risk_flood, risk_fire, risk_pollution, data]
-  );
+  // ── AUTO-REGISTER node if it doesn't exist yet (ESP32 hot-plug) ──────────
+  try {
+    const meta = resolveNodeMeta(nodeId, data);
+    await db.query(
+      `INSERT INTO nodes (node_id, name, latitude, longitude, category, status, last_seen_at, battery_pct, rssi, solar_charging)
+       VALUES ($1, $2, $3, $4, $5, 'online', now(), $6, $7, $8)
+       ON CONFLICT (node_id) DO UPDATE
+         SET last_seen_at   = now(),
+             status         = 'online',
+             battery_pct    = COALESCE(EXCLUDED.battery_pct, nodes.battery_pct),
+             rssi           = COALESCE(EXCLUDED.rssi, nodes.rssi),
+             solar_charging = COALESCE(EXCLUDED.solar_charging, nodes.solar_charging)`,
+      [nodeId, meta.name, meta.lat, meta.lng, meta.category,
+       battery_pct ?? 100, rssi ?? -65, solar_charging ?? false]
+    );
+  } catch (upsertErr) {
+    console.warn('[MQTT] Node upsert skipped (no DB?):', upsertErr.message);
+  }
 
-  await db.query(
-    `UPDATE nodes SET last_seen_at=now(), status='online',
-       battery_pct=COALESCE($2,battery_pct),
-       rssi=COALESCE($3,rssi),
-       solar_charging=COALESCE($4,solar_charging)
-     WHERE node_id=$1`,
-    [nodeId, battery_pct, rssi, solar_charging]
-  );
+  // ── Insert sensor reading ─────────────────────────────────────────────────
+  let result = null;
+  try {
+    result = await db.query(
+      `INSERT INTO sensor_readings
+         (node_id, water_level_cm, flame_detected, smoke_aqi,
+          temperature_c, humidity_pct, soil_moisture,
+          risk_flood, risk_fire, risk_pollution, raw_payload)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+       RETURNING *`,
+      [nodeId, water_level_cm, flame_detected ?? false, smoke_aqi,
+       temperature_c, humidity_pct, soil_moisture,
+       risk_flood ?? 0, risk_fire ?? 0, risk_pollution ?? 0, data]
+    );
+  } catch (dbErr) {
+    console.warn('[MQTT] DB insert skipped (no DB?):', dbErr.message);
+  }
 
-  const node = (await db.query('SELECT * FROM nodes WHERE node_id=$1', [nodeId])).rows[0];
-  sockets.emit('node:update', node);
-  sockets.emit('reading:new', result.rows[0]);
+  // ── Always emit to Socket.IO (even if DB is unavailable) ─────────────────
+  const liveNode = {
+    node_id:        nodeId,
+    ...resolveNodeMeta(nodeId, data),
+    status:         'online',
+    battery_pct:    battery_pct ?? 100,
+    rssi:           rssi ?? -65,
+    solar_charging: solar_charging ?? false,
+    water_level_cm, flame_detected, smoke_aqi,
+    temperature_c, humidity_pct, soil_moisture,
+    risk_flood:      risk_flood ?? 0,
+    risk_fire:       risk_fire ?? 0,
+    risk_pollution:  risk_pollution ?? 0,
+    // Pass through all raw ESP32 fields for the UI
+    gas_ppm:         data.gas_ppm,
+    pm10:            data.pm10,
+    mq135_strength:  data.mq135_strength,
+    mq135_status:    data.mq135_status,
+    mq7_strength:    data.mq7_strength,
+    mq7_status:      data.mq7_status,
+    mq4_strength:    data.mq4_strength,
+    mq4_status:      data.mq4_status,
+    node_type:       data.node_type,
+    last_seen_at:    new Date().toISOString(),
+    last_update:     'Just now',
+  };
 
-  await checkThresholds(nodeId, data, node);
+  try {
+    const dbNode = (await db.query('SELECT * FROM nodes WHERE node_id=$1', [nodeId])).rows[0];
+    sockets.emit('node:update', dbNode || liveNode);
+  } catch {
+    sockets.emit('node:update', liveNode);
+  }
+
+  if (result?.rows?.[0]) {
+    sockets.emit('reading:new', result.rows[0]);
+  } else {
+    sockets.emit('reading:new', { node_id: nodeId, ...data, recorded_at: new Date().toISOString() });
+  }
+
+  await checkThresholds(nodeId, data, liveNode);
 }
 
 async function checkThresholds(nodeId, data, node) {

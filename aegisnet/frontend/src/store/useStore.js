@@ -2,6 +2,49 @@
 // Supporting Light Command Center UI, GSDMA 4-Tier Severity, Multi-Agency Dispatch Kanban, 5 Scenarios & Multilingual Citizen Portal
 
 import { create } from 'zustand'
+import { io } from 'socket.io-client'
+
+// ─── Socket.IO Real-Time Connection ──────────────────────────────────────────
+let _socket = null
+
+function getSocket() {
+  if (_socket) return _socket
+  try {
+    _socket = io('http://localhost:4000', {
+      reconnectionDelay: 3000,
+      reconnectionAttempts: Infinity,
+      timeout: 5000,
+    })
+    _socket.on('connect', () => {
+      console.log('[Socket.IO] Connected to AegisNet backend')
+      useStore.getState().setSocketConnected(true)
+    })
+    _socket.on('disconnect', () => {
+      console.log('[Socket.IO] Disconnected from backend')
+      useStore.getState().setSocketConnected(false)
+    })
+    _socket.on('connect_error', () => {
+      // silently retry — backend may not be running yet
+    })
+    _socket.on('node:update', (nodeData) => {
+      useStore.getState().upsertEsp32Node(nodeData)
+    })
+    _socket.on('reading:new', (reading) => {
+      useStore.getState().addReading(reading)
+    })
+    _socket.on('alert:new', (alert) => {
+      useStore.getState().addRealAlert(alert)
+    })
+  } catch (e) {
+    console.warn('[Socket.IO] Could not initialize:', e.message)
+  }
+  return _socket
+}
+
+// Auto-start socket when module loads in browser
+if (typeof window !== 'undefined') {
+  setTimeout(() => getSocket(), 500)
+}
 
 // ─── 5 Sensor Categories ──────────────────────────────────────────────────────
 export const SENSOR_CATEGORIES = [
@@ -760,6 +803,71 @@ export const useStore = create((set, get) => ({
         ...state.auditLog,
       ],
     }))
+  },
+
+  // ─── ESP32 Real-Time Hardware State ──────────────────────────────────────
+  esp32Nodes: [],           // Live physical ESP32 nodes detected via USB
+  socketConnected: false,   // true when Socket.IO is connected to backend:4000
+  recentReadings: [],       // Last 100 sensor readings for history/charts
+  bridgeStatus: null,       // { status: 'connected'|'disconnected', port }
+
+  setSocketConnected: (connected) => set({ socketConnected: connected }),
+  setBridgeStatus: (status) => set({ bridgeStatus: status }),
+
+  // Merge incoming ESP32 node data into esp32Nodes list
+  upsertEsp32Node: (nodeData) => {
+    set((s) => {
+      const existing = s.esp32Nodes.findIndex((n) => n.node_id === nodeData.node_id)
+      const updated = existing >= 0
+        ? s.esp32Nodes.map((n) => n.node_id === nodeData.node_id
+            ? { ...n, ...nodeData, last_update: 'Just now' }
+            : n)
+        : [{ ...nodeData, last_update: 'Just now' }, ...s.esp32Nodes]
+      return {
+        esp32Nodes: updated,
+        hardwareMode: 'live',
+      }
+    })
+    // Also log in audit trail on first detection
+    const existing = get().esp32Nodes.find((n) => n.node_id === nodeData.node_id)
+    if (!existing) {
+      get().addAuditLog(
+        'ESP32 Node Detected',
+        'Auto-Detection System',
+        `${nodeData.name || nodeData.node_id} connected via USB Serial Bridge`
+      )
+    }
+  },
+
+  // Append new sensor reading (keep last 200)
+  addReading: (reading) => {
+    set((s) => ({
+      recentReadings: [reading, ...s.recentReadings].slice(0, 200),
+    }))
+  },
+
+  // Add a real alert from ESP32 threshold breach
+  addRealAlert: (alert) => {
+    const newAlert = {
+      id:              `ALT-ESP-${alert.id || Date.now()}`,
+      node_id:         alert.node_id,
+      category:        alert.hazard === 'flood' ? 'flood' : alert.hazard === 'fire' ? 'fire' : 'air',
+      hazard:          alert.hazard,
+      severity:        alert.risk_score >= 80 ? 'emergency' : alert.risk_score >= 55 ? 'warning' : 'watch',
+      risk_score:      alert.risk_score,
+      title:           `⚡ ESP32 Alert: ${alert.message}`,
+      location:        `ESP32 Sensor Node (${alert.node_id})`,
+      landmark_tag:    'Real ESP32 Hardware',
+      timestamp:       'Just now',
+      acknowledged:    false,
+      correlated_nodes: 1,
+      confidence_pct:  92.0,
+      root_cause:      alert.message,
+      readings_snapshot: {},
+      dispatch_status: 'Auto-Detected',
+    }
+    set((s) => ({ alerts: [newAlert, ...s.alerts] }))
+    get().addAuditLog('ESP32 Alert', 'AI Threshold Monitor', alert.message)
   },
 
   // ─── Sensor Node Actions ───────────────────────────────────────────────────

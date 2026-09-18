@@ -4,12 +4,162 @@ import { useStore, SENSOR_CATEGORIES } from '../store/useStore'
 import RiskMap from '../components/map/RiskMap'
 import clsx from 'clsx'
 
+// ─── ESP32 Node Card — shows only the sensors relevant to each node type ─────
+function Esp32NodeCard({ node }) {
+  const nt = (node.node_type || node.category || '').toLowerCase()
+  const isFlood      = nt === 'flood'      || node.node_id?.includes('FLOOD')
+  const isCotemp     = nt === 'fire'       || nt === 'cotemp' || node.node_id?.includes('COTEMP')
+  const isPollution  = nt === 'air'        || nt === 'pollution' || node.node_id?.includes('POLLUTION')
+
+  const riskPct = Math.max(
+    node.risk_flood || 0,
+    node.risk_fire  || 0,
+    node.risk_pollution || 0
+  )
+  const riskColor = riskPct >= 80 ? 'text-red-600' : riskPct >= 50 ? 'text-amber-600' : 'text-emerald-600'
+  const borderColor = riskPct >= 80 ? 'border-red-300 bg-red-50/60' : riskPct >= 50 ? 'border-amber-300 bg-amber-50/60' : 'border-emerald-300 bg-emerald-50/60'
+
+  return (
+    <div className={clsx('rounded-2xl border-2 p-4 space-y-3 shadow-sm', borderColor)}>
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-lg">
+            {isFlood ? '🌊' : isCotemp ? '🔥' : isPollution ? '🌫️' : '📡'}
+          </span>
+          <div>
+            <div className="text-xs font-extrabold text-slate-800 leading-tight">
+              {node.name || node.node_id}
+            </div>
+            <div className="text-[10px] text-slate-500 font-mono">{node.node_id}</div>
+          </div>
+        </div>
+        <div className="flex flex-col items-end gap-1">
+          <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded-full">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse inline-block" />
+            LIVE
+          </span>
+          <span className={clsx('text-xs font-mono font-bold', riskColor)}>
+            Risk {riskPct}%
+          </span>
+        </div>
+      </div>
+
+      {/* Metrics — only show what this node type produces */}
+      <div className="grid grid-cols-2 gap-2">
+
+        {/* FLOOD NODE metrics */}
+        {isFlood && <>
+          <div className="rounded-xl bg-white/80 border border-blue-100 p-3">
+            <div className="text-[10px] text-slate-500 font-semibold uppercase tracking-wide">Water Distance</div>
+            <div className="text-xl font-mono font-bold text-blue-700 mt-0.5">
+              {node.water_level_cm != null ? `${node.water_level_cm.toFixed(1)} cm` : '—'}
+            </div>
+            <div className="text-[10px] text-slate-400 mt-0.5">
+              {node.water_level_cm < 50 ? '🔴 Critical — water very close' : node.water_level_cm < 100 ? '🟡 Warning — rising' : '🟢 Normal'}
+            </div>
+          </div>
+          <div className="rounded-xl bg-white/80 border border-blue-100 p-3">
+            <div className="text-[10px] text-slate-500 font-semibold uppercase tracking-wide">Soil Moisture</div>
+            <div className="text-xl font-mono font-bold text-blue-700 mt-0.5">
+              {node.soil_moisture != null ? `${node.soil_moisture.toFixed(1)} %` : '—'}
+            </div>
+            <div className="text-[10px] text-slate-400 mt-0.5">
+              {node.soil_moisture > 90 ? '🔴 Saturated' : node.soil_moisture > 70 ? '🟡 Wet' : '🟢 Normal'}
+            </div>
+          </div>
+        </>}
+
+        {/* CO+TEMP NODE metrics */}
+        {isCotemp && <>
+          <div className="rounded-xl bg-white/80 border border-orange-100 p-3">
+            <div className="text-[10px] text-slate-500 font-semibold uppercase tracking-wide">CO Gas</div>
+            <div className="text-xl font-mono font-bold text-orange-700 mt-0.5">
+              {node.gas_ppm != null ? `${node.gas_ppm.toFixed(2)} ppm` : '—'}
+            </div>
+            <div className="text-[10px] text-slate-400 mt-0.5">
+              {node.gas_ppm > 9 ? '🔴 Dangerous' : node.gas_ppm > 5 ? '🟡 Elevated' : '🟢 Safe'}
+            </div>
+          </div>
+          <div className="rounded-xl bg-white/80 border border-orange-100 p-3">
+            <div className="text-[10px] text-slate-500 font-semibold uppercase tracking-wide">Temperature</div>
+            <div className="text-xl font-mono font-bold text-orange-700 mt-0.5">
+              {node.temperature_c != null ? `${node.temperature_c.toFixed(1)} °C` : '—'}
+            </div>
+            <div className="text-[10px] text-slate-400 mt-0.5">
+              {node.temperature_c > 40 ? '🔴 Critical' : node.temperature_c > 35 ? '🟡 High' : '🟢 Normal'}
+            </div>
+          </div>
+          <div className="rounded-xl bg-white/80 border border-orange-100 p-3 col-span-2">
+            <div className="text-[10px] text-slate-500 font-semibold uppercase tracking-wide">Humidity (DHT11)</div>
+            <div className="text-xl font-mono font-bold text-orange-700 mt-0.5">
+              {node.humidity_pct != null ? `${node.humidity_pct.toFixed(1)} %` : '—'}
+            </div>
+          </div>
+        </>}
+
+        {/* POLLUTION NODE metrics */}
+        {isPollution && <>
+          <div className="rounded-xl bg-white/80 border border-purple-100 p-3">
+            <div className="text-[10px] text-slate-500 font-semibold uppercase tracking-wide">PM2.5</div>
+            <div className="text-xl font-mono font-bold text-purple-700 mt-0.5">
+              {node.smoke_aqi != null ? `${node.smoke_aqi} µg/m³` : '—'}
+            </div>
+            <div className="text-[10px] text-slate-400 mt-0.5">
+              {node.smoke_aqi > 55 ? '🔴 Very Unhealthy' : node.smoke_aqi > 35 ? '🟡 Unhealthy' : '🟢 Good'}
+            </div>
+          </div>
+          <div className="rounded-xl bg-white/80 border border-purple-100 p-3">
+            <div className="text-[10px] text-slate-500 font-semibold uppercase tracking-wide">PM10</div>
+            <div className="text-xl font-mono font-bold text-purple-700 mt-0.5">
+              {node.pm10 != null ? `${node.pm10} µg/m³` : '—'}
+            </div>
+            <div className="text-[10px] text-slate-400 mt-0.5">
+              {node.pm10 > 100 ? '🔴 Critical' : node.pm10 > 50 ? '🟡 Warning' : '🟢 Safe'}
+            </div>
+          </div>
+          <div className="rounded-xl bg-white/80 border border-purple-100 p-3">
+            <div className="text-[10px] text-slate-500 font-semibold uppercase tracking-wide">MQ-135 NH3</div>
+            <div className={clsx('text-base font-mono font-bold mt-0.5',
+              node.mq135_status === 'DETECTED' ? 'text-red-600' : 'text-emerald-600'
+            )}>
+              {node.mq135_status || '—'}
+            </div>
+            {node.mq135_strength != null && (
+              <div className="text-[10px] text-slate-400">{node.mq135_strength.toFixed(1)}% strength</div>
+            )}
+          </div>
+          <div className="rounded-xl bg-white/80 border border-purple-100 p-3">
+            <div className="text-[10px] text-slate-500 font-semibold uppercase tracking-wide">MQ-4 CH4</div>
+            <div className={clsx('text-base font-mono font-bold mt-0.5',
+              node.mq4_status === 'DETECTED' ? 'text-red-600' : 'text-emerald-600'
+            )}>
+              {node.mq4_status || '—'}
+            </div>
+            {node.mq4_strength != null && (
+              <div className="text-[10px] text-slate-400">{node.mq4_strength.toFixed(1)}% strength</div>
+            )}
+          </div>
+        </>}
+      </div>
+
+      {/* Last updated */}
+      <div className="text-[10px] text-slate-400 text-right font-mono">
+        Updated: {node.last_update || 'Just now'}
+      </div>
+    </div>
+  )
+}
+
 export default function Dashboard() {
-  const navigate       = useNavigate()
-  const nodes          = useStore((s) => s.nodes)
-  const alerts         = useStore((s) => s.alerts)
-  const dispatches     = useStore((s) => s.dispatches)
-  const selectedRegion = useStore((s) => s.selectedRegion)
+  const navigate        = useNavigate()
+  const nodes           = useStore((s) => s.nodes)
+  const alerts          = useStore((s) => s.alerts)
+  const dispatches      = useStore((s) => s.dispatches)
+  const selectedRegion  = useStore((s) => s.selectedRegion)
+  const esp32Nodes      = useStore((s) => s.esp32Nodes)
+  const socketConnected = useStore((s) => s.socketConnected)
+  const hardwareMode    = useStore((s) => s.hardwareMode)
 
   const onlineCount     = nodes.filter((n) => n.status === 'online').length
   const totalCount      = nodes.length
@@ -19,8 +169,52 @@ export default function Dashboard() {
   return (
     <div className="max-w-7xl mx-auto px-4 lg:px-6 py-6 space-y-6 font-sans animate-slide-up">
 
+      {/* ─── 0. ESP32 Live Hardware Panel (shown when ESP32 is connected) ──── */}
+      {esp32Nodes.length > 0 && (
+        <div className="rounded-3xl border-2 border-emerald-300 bg-gradient-to-br from-emerald-50/80 to-teal-50/60 p-5 shadow-md space-y-4">
+          {/* Banner */}
+          <div className="flex items-center justify-between flex-wrap gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-2xl bg-emerald-500 flex items-center justify-center shadow-sm">
+                <span className="text-white text-xl">🔌</span>
+              </div>
+              <div>
+                <div className="text-sm font-extrabold text-emerald-800 tracking-tight">
+                  Live ESP32 Hardware Connected
+                </div>
+                <div className="text-xs text-emerald-600">
+                  {esp32Nodes.length} node{esp32Nodes.length > 1 ? 's' : ''} detected via USB Serial Bridge · Auto-monitoring active
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className={clsx(
+                'text-[10px] font-bold px-3 py-1 rounded-full border',
+                socketConnected
+                  ? 'bg-emerald-100 text-emerald-700 border-emerald-300'
+                  : 'bg-slate-100 text-slate-500 border-slate-200'
+              )}>
+                {socketConnected ? '● Backend Connected' : '○ Backend Offline'}
+              </span>
+              <span className="text-[10px] font-bold px-3 py-1 rounded-full border bg-blue-100 text-blue-700 border-blue-300">
+                MODE: {hardwareMode.toUpperCase()}
+              </span>
+            </div>
+          </div>
+
+          {/* Node cards grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {esp32Nodes.map((node) => (
+              <Esp32NodeCard key={node.node_id} node={node} />
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* ─── 1. Hero Metric Strip (Landing Page Aesthetic, Curved 3XL) ───────── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+
+
 
         {/* Alert count card */}
         <div className={clsx(
