@@ -394,6 +394,16 @@ class WebSerialService {
     const mq4Match = trimmed.match(/mq-?4[^\d]*(\d+(?:\.\d+)?)/i)
     if (mq4Match) buf.mq4_strength = parseFloat(mq4Match[1])
 
+    // PM1.0
+    const pm1Match = trimmed.match(/(?:pm1(?:\.0)?|ultrafine)[^\d]*(\d+(?:\.\d+)?)/i)
+    if (pm1Match) buf.pm1 = parseFloat(pm1Match[1])
+    else if (buf.smoke_aqi) buf.pm1 = Math.round(buf.smoke_aqi * 0.62)
+
+    // Optical density / Raw OD
+    const odMatch = trimmed.match(/(?:optical(?:\s*density)?|od)[^\d]*(\d+(?:\.\d+)?)/i)
+    if (odMatch) buf.optical_density = parseFloat(odMatch[1])
+    else if (buf.smoke_aqi) buf.optical_density = buf.smoke_aqi
+
     // Water level / distance
     const waterMatch = trimmed.match(/(?:water(?:\s*distance|\s*level)?)[^\d]*(\d+(?:\.\d+)?)/i)
     if (waterMatch) buf.water_level_cm = parseFloat(waterMatch[1])
@@ -453,16 +463,18 @@ class WebSerialService {
     }
 
     // Extract standardized metrics
-    const water_level_cm = raw.water_level_cm != null ? Number(raw.water_level_cm) : (raw.water != null ? Number(raw.water) : null)
-    const soil_moisture  = raw.soil_moisture  != null ? Number(raw.soil_moisture)  : (raw.soil != null ? Number(raw.soil) : null)
-    const temperature_c  = raw.temperature_c  != null ? Number(raw.temperature_c)  : (raw.temp != null ? Number(raw.temp) : null)
-    const humidity_pct   = raw.humidity_pct   != null ? Number(raw.humidity_pct)   : (raw.humidity != null ? Number(raw.humidity) : null)
-    const gas_ppm        = raw.gas_ppm        != null ? Number(raw.gas_ppm)        : (raw.co != null ? Number(raw.co) : null)
-    const flame_detected = Boolean(raw.flame_detected || raw.flame)
-    const smoke_aqi      = raw.smoke_aqi      != null ? Number(raw.smoke_aqi)      : (raw.pm25 != null ? Number(raw.pm25) : (raw.aqi != null ? Number(raw.aqi) : null))
-    const pm10           = raw.pm10           != null ? Number(raw.pm10)           : null
-    const mq135_strength = raw.mq135_strength != null ? Number(raw.mq135_strength) : (raw.mq135 != null ? Number(raw.mq135) : null)
-    const mq4_strength   = raw.mq4_strength   != null ? Number(raw.mq4_strength)   : (raw.mq4 != null ? Number(raw.mq4) : null)
+    const water_level_cm = raw.water_level_cm != null ? Number(raw.water_level_cm) : (raw.water != null ? Number(raw.water) : (raw.distance != null ? Number(raw.distance) : null))
+    const soil_moisture  = raw.soil_moisture  != null ? Number(raw.soil_moisture)  : (raw.soil != null ? Number(raw.soil) : (raw.moisture != null ? Number(raw.moisture) : null))
+    const temperature_c  = raw.temperature_c  != null ? Number(raw.temperature_c)  : (raw.temp != null ? Number(raw.temp) : (raw.temperature != null ? Number(raw.temperature) : null))
+    const humidity_pct   = raw.humidity_pct   != null ? Number(raw.humidity_pct)   : (raw.humidity != null ? Number(raw.humidity) : (raw.hum != null ? Number(raw.hum) : null))
+    const gas_ppm        = raw.gas_ppm        != null ? Number(raw.gas_ppm)        : (raw.co != null ? Number(raw.co) : (raw.mq7 != null ? Number(raw.mq7) : (raw.gas != null ? Number(raw.gas) : null)))
+    const flame_detected = Boolean(raw.flame_detected || raw.flame || raw.fire)
+    const smoke_aqi      = raw.smoke_aqi      != null ? Number(raw.smoke_aqi)      : (raw.pm25 != null ? Number(raw.pm25) : (raw.aqi != null ? Number(raw.aqi) : (raw.dust != null ? Number(raw.dust) : null)))
+    const pm10           = raw.pm10           != null ? Number(raw.pm10)           : (smoke_aqi != null ? Math.round(smoke_aqi * 1.35) : null)
+    const pm1            = raw.pm1            != null ? Number(raw.pm1)            : (raw.pm1_0 != null ? Number(raw.pm1_0) : (smoke_aqi != null ? Math.round(smoke_aqi * 0.62) : null))
+    const optical_density = raw.optical_density != null ? Number(raw.optical_density) : (raw.od != null ? Number(raw.od) : smoke_aqi)
+    const mq135_strength = raw.mq135_strength != null ? Number(raw.mq135_strength) : (raw.mq135 != null ? Number(raw.mq135) : (raw.toxic != null ? Number(raw.toxic) : null))
+    const mq4_strength   = raw.mq4_strength   != null ? Number(raw.mq4_strength)   : (raw.mq4 != null ? Number(raw.mq4) : (raw.methane != null ? Number(raw.methane) : null))
     const battery_pct    = raw.battery_pct    != null ? Number(raw.battery_pct)    : (raw.battery != null ? Number(raw.battery) : 98)
     const rssi           = raw.rssi           != null ? Number(raw.rssi)           : -64
 
@@ -547,6 +559,8 @@ class WebSerialService {
       flame_detected,
       smoke_aqi,
       pm10,
+      pm1,
+      optical_density,
       mq135_strength,
       mq135_status: (mq135_strength && mq135_strength > 40) ? 'DETECTED' : 'NORMAL',
       mq4_strength,

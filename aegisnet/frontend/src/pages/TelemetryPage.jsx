@@ -653,6 +653,7 @@ export default function TelemetryPage() {
   const usbConnected    = useStore((s) => s.usbConnected)
   const setUsbModalOpen = useStore((s) => s.setUsbModalOpen)
   const selectedRegion  = useStore((s) => s.selectedRegion || 'All Gujarat Grid')
+  const lastPhysicalPacketTime = useStore((s) => s.lastPhysicalPacketTime)
 
   const [timeRange, setTimeRange] = useState('live')
   const [isSimulating, setIsSimulating] = useState(false)
@@ -733,7 +734,149 @@ export default function TelemetryPage() {
     return matched ? matched[1] : 'Normal'
   }, [])
 
-  // Step ticker every 2s
+  // ─── Immediate Physical Hardware Ingestion ────────────────────────────────
+  // When ESP32 transmits packets via USB Web Serial or ESP-NOW Gateway, immediately
+  // lock all measured physical values onto the page without artificial smoothing or simulated noise.
+  useEffect(() => {
+    if (!floodNode && !cotempNode && !pollutionNode) return
+    const now = Date.now()
+    const liveMetrics = {}
+    const newLogEntries = []
+
+    // 1. Flood Node (Ultrasonic water level + analog soil moisture)
+    if (floodNode?.is_live_hw) {
+      if (floodNode.water_level_cm != null) {
+        liveMetrics.water = floodNode.water_level_cm
+        newLogEntries.push({
+          st: 'ESP32-FLOOD',
+          param: 'Water Distance',
+          val: `${fmt(floodNode.water_level_cm, 1)} cm`,
+          mKey: 'water'
+        })
+      }
+      if (floodNode.soil_moisture != null) {
+        liveMetrics.soil = floodNode.soil_moisture
+        newLogEntries.push({
+          st: 'ESP32-FLOOD',
+          param: 'Soil Saturation',
+          val: `${fmt(floodNode.soil_moisture, 1)} %`,
+          mKey: 'soil'
+        })
+      }
+    }
+
+    // 2. CO/Thermal Node (MQ-7 CO gas + DHT11/22 Temperature/Humidity + Optical Flame IR)
+    if (cotempNode?.is_live_hw) {
+      if (cotempNode.gas_ppm != null) {
+        liveMetrics.co = cotempNode.gas_ppm
+        newLogEntries.push({
+          st: 'ESP32-COTEMP',
+          param: 'CO Gas (MQ-7)',
+          val: `${fmt(cotempNode.gas_ppm, 2)} ppm`,
+          mKey: 'co'
+        })
+      }
+      if (cotempNode.temperature_c != null) {
+        liveMetrics.temp = cotempNode.temperature_c
+        newLogEntries.push({
+          st: 'ESP32-COTEMP',
+          param: 'Ambient Temp',
+          val: `${fmt(cotempNode.temperature_c, 1)} °C`,
+          mKey: 'temp'
+        })
+      }
+      if (cotempNode.humidity_pct != null) {
+        liveMetrics.hum = cotempNode.humidity_pct
+        newLogEntries.push({
+          st: 'ESP32-COTEMP',
+          param: 'Relative Humidity',
+          val: `${fmt(cotempNode.humidity_pct, 1)} %`,
+          mKey: 'hum'
+        })
+      }
+      if (cotempNode.flame_detected !== undefined) {
+        liveMetrics.flame = cotempNode.flame_detected ? 1 : 0
+        newLogEntries.push({
+          st: 'ESP32-COTEMP',
+          param: 'Flame Sensor',
+          val: cotempNode.flame_detected ? 'DETECTED / 1' : 'CLEAR / 0',
+          mKey: 'flame'
+        })
+      }
+    }
+
+    // 3. Pollution Node (Dust Sensor PM2.5/PM10/PM1.0/OD + MQ-135 Toxic + MQ-4 Combustible)
+    if (pollutionNode?.is_live_hw) {
+      if (pollutionNode.smoke_aqi != null) {
+        liveMetrics.pm25 = pollutionNode.smoke_aqi
+        liveMetrics.pm10 = pollutionNode.pm10 || Math.round(pollutionNode.smoke_aqi * 1.35)
+        liveMetrics.pm1 = pollutionNode.pm1 || Math.round(pollutionNode.smoke_aqi * 0.62)
+        liveMetrics.od = pollutionNode.optical_density || pollutionNode.smoke_aqi
+        newLogEntries.push({
+          st: 'ESP32-POLLUTION',
+          param: 'PM2.5 Density',
+          val: `${fmt(pollutionNode.smoke_aqi, 0)} µg/m³`,
+          mKey: 'pm25'
+        })
+      }
+      if (pollutionNode.mq135_strength != null) {
+        liveMetrics.mq135 = pollutionNode.mq135_strength
+        newLogEntries.push({
+          st: 'ESP32-POLLUTION',
+          param: 'MQ-135 Toxic Gas',
+          val: `${fmt(pollutionNode.mq135_strength, 1)} %`,
+          mKey: 'mq135'
+        })
+      }
+      if (pollutionNode.mq4_strength != null) {
+        liveMetrics.mq4 = pollutionNode.mq4_strength
+        newLogEntries.push({
+          st: 'ESP32-POLLUTION',
+          param: 'MQ-4 Combustible',
+          val: `${fmt(pollutionNode.mq4_strength, 1)} %`,
+          mKey: 'mq4'
+        })
+      }
+    }
+
+    // Immediately commit measured physical hardware numbers
+    if (Object.keys(liveMetrics).length > 0) {
+      setMetricValues((prev) => ({ ...prev, ...liveMetrics }))
+
+      setLiveData((prevHist) => {
+        const nextHist = { ...prevHist }
+        Object.keys(liveMetrics).forEach((k) => {
+          const curArr = prevHist[k] || []
+          nextHist[k] = [...curArr.slice(1), { t: now, v: liveMetrics[k] }]
+        })
+        return nextHist
+      })
+
+      if (newLogEntries.length > 0) {
+        const formattedRows = newLogEntries.map((entry, eIdx) => {
+          const def = metricsDefMap[entry.mKey]
+          const val = liveMetrics[entry.mKey]
+          const tone = def ? getMetricTone(def, val) : 'ok'
+          const lab = def ? getMetricLabel(def, val) : 'Normal'
+          return {
+            id: `${now}-${eIdx}-${Math.random()}`,
+            t: now,
+            st: entry.st,
+            param: entry.param,
+            val: entry.val,
+            tone,
+            lab,
+            fresh: true
+          }
+        })
+        setLogs((prevLogs) => [...formattedRows, ...prevLogs.map((l) => ({ ...l, fresh: false }))].slice(0, 80))
+      }
+    }
+  }, [floodNode, cotempNode, pollutionNode, lastPhysicalPacketTime, metricsDefMap, getMetricTone, getMetricLabel])
+
+  // ─── Continuous Real-Time Refresh Ticker ───────────────────────────────────
+  // Locks live hardware nodes to their actual readings; provides smooth organic drift
+  // only for non-connected/standby nodes or packet simulator mode.
   useEffect(() => {
     const interval = setInterval(() => {
       const now = Date.now()
@@ -741,33 +884,23 @@ export default function TelemetryPage() {
       setMetricValues((prev) => {
         const next = { ...prev }
 
-        // Pull real values from ESP32 nodes if present, else smooth realistic organic noise
-        const targetWater = floodNode?.water_level_cm != null ? floodNode.water_level_cm : 45.0
-        const targetSoil  = floodNode?.soil_moisture != null ? floodNode.soil_moisture : 69.4
-        const targetCo    = cotempNode?.gas_ppm != null ? cotempNode.gas_ppm : 2.71
-        const targetTemp  = cotempNode?.temperature_c != null ? cotempNode.temperature_c : 27.7
-        const targetHum   = cotempNode?.humidity_pct != null ? cotempNode.humidity_pct : 61.8
-        const targetFlame = cotempNode?.flame_detected ? 1 : 0
-        const targetPm25  = pollutionNode?.smoke_aqi != null ? pollutionNode.smoke_aqi : 49.0
-        const targetPm10  = pollutionNode?.pm10 != null ? pollutionNode.pm10 : 65.0
-        const targetPm1   = (pollutionNode?.smoke_aqi != null ? pollutionNode.smoke_aqi : 49.0) * 0.62
-        const targetOd    = pollutionNode?.smoke_aqi != null ? pollutionNode.smoke_aqi : 49.0
-        const targetMq135 = pollutionNode?.mq135_strength != null ? pollutionNode.mq135_strength : 34.6
-        const targetMq4   = pollutionNode?.mq4_strength != null ? pollutionNode.mq4_strength : 15.6
+        const isFloodLive = Boolean(floodNode?.is_live_hw)
+        const isCotempLive = Boolean(cotempNode?.is_live_hw)
+        const isPollutionLive = Boolean(pollutionNode?.is_live_hw)
 
         const targets = {
-          water: targetWater,
-          soil: targetSoil,
-          co: targetCo,
-          temp: targetTemp,
-          hum: targetHum,
-          flame: targetFlame,
-          pm1: targetPm1,
-          pm25: targetPm25,
-          pm10: targetPm10,
-          od: targetOd,
-          mq135: targetMq135,
-          mq4: targetMq4
+          water: floodNode?.water_level_cm != null ? floodNode.water_level_cm : 45.0,
+          soil: floodNode?.soil_moisture != null ? floodNode.soil_moisture : 69.4,
+          co: cotempNode?.gas_ppm != null ? cotempNode.gas_ppm : 2.71,
+          temp: cotempNode?.temperature_c != null ? cotempNode.temperature_c : 27.7,
+          hum: cotempNode?.humidity_pct != null ? cotempNode.humidity_pct : 61.8,
+          flame: cotempNode?.flame_detected ? 1 : 0,
+          pm1: (pollutionNode?.smoke_aqi != null ? pollutionNode.smoke_aqi : 49.0) * 0.62,
+          pm25: pollutionNode?.smoke_aqi != null ? pollutionNode.smoke_aqi : 49.0,
+          pm10: pollutionNode?.pm10 != null ? pollutionNode.pm10 : 65.0,
+          od: pollutionNode?.smoke_aqi != null ? pollutionNode.smoke_aqi : 49.0,
+          mq135: pollutionNode?.mq135_strength != null ? pollutionNode.mq135_strength : 34.6,
+          mq4: pollutionNode?.mq4_strength != null ? pollutionNode.mq4_strength : 15.6
         }
 
         const vol = isSimulating ? 2.8 : 1.0
@@ -775,9 +908,17 @@ export default function TelemetryPage() {
         Object.keys(targets).forEach((key) => {
           const def = metricsDefMap[key]
           if (!def) return
-          if (def.kind === 'binary') {
+          const isStationLive = def.station.id === 'flood' ? isFloodLive
+            : def.station.id === 'co' ? isCotempLive
+            : isPollutionLive
+
+          if (isStationLive) {
+            // Live Hardware: keep exact measured physical value without noise
+            next[key] = targets[key]
+          } else if (def.kind === 'binary') {
             next[key] = targets[key]
           } else {
+            // Standby virtual nodes: gentle realistic wave
             const baseT = targets[key]
             const noise = (Math.random() - 0.5) * 2 * def.noise * vol
             const simSpike = isSimulating && def.station.id === 'air' && Math.random() < 0.15 ? Math.random() * 8 : 0
@@ -796,7 +937,7 @@ export default function TelemetryPage() {
           return nextHist
         })
 
-        // Push 1-2 new log rows
+        // Push standard heartbeat log if not flooded by physical packets
         const candidateKeys = ['pm25', 'mq135', 'co', 'temp', 'water', 'soil']
         const pickKey = candidateKeys[Math.floor(Math.random() * candidateKeys.length)]
         const pickDef = metricsDefMap[pickKey]
@@ -810,7 +951,7 @@ export default function TelemetryPage() {
 
           setLogs((prevLogs) => [
             {
-              id: Date.now(),
+              id: `${now}-${Math.random()}`,
               t: now,
               st: pickDef.station.node,
               param: pickDef.param,
@@ -820,7 +961,7 @@ export default function TelemetryPage() {
               fresh: true
             },
             ...prevLogs.map((l) => ({ ...l, fresh: false }))
-          ].slice(0, 60))
+          ].slice(0, 80))
         }
 
         return next
@@ -869,6 +1010,7 @@ export default function TelemetryPage() {
 
   // Mesh stats
   const activeNodesCount = [floodNode, cotempNode, pollutionNode].filter((n) => Boolean(n && n.status === 'online')).length || 3
+  const liveHwCount = [floodNode, cotempNode, pollutionNode].filter((n) => Boolean(n?.is_live_hw)).length
   const hazardScore = useMemo(() => {
     let sum = 0
     let count = 0
@@ -962,7 +1104,7 @@ export default function TelemetryPage() {
                 onClick={() => setUsbModalOpen(true)}
               >
                 <svg className="i"><use href="#i-term" /></svg>
-                <span>Open serial gateway terminal</span>
+                <span>{usbConnected ? 'Gateway Connected' : 'Open serial gateway terminal'}</span>
                 {usbConnected && <span className="pulse" style={{ color: '#86efac', marginLeft: '6px' }} />}
               </button>
 
@@ -1111,7 +1253,7 @@ export default function TelemetryPage() {
             <div className="mesh-stats">
               <div className="mstat">
                 <span>Nodes online</span>
-                <b>{activeNodesCount} / 3</b>
+                <b>{liveHwCount > 0 ? `${liveHwCount} / 3 Live HW` : `${activeNodesCount} / 3 Online`}</b>
               </div>
               <div className="mstat">
                 <span>Network latency</span>
@@ -1177,10 +1319,20 @@ export default function TelemetryPage() {
                       <p>{station.loc}</p>
                       <div className="st-badges">
                         <span className="node-id">{station.node}</span>
-                        <span className="hw">
-                          <span className="pulse" />
-                          Live hardware
-                        </span>
+                        {(() => {
+                          const n = station.id === 'flood' ? floodNode : station.id === 'co' ? cotempNode : pollutionNode
+                          return n?.is_live_hw ? (
+                            <span className="hw">
+                              <span className="pulse" />
+                              Live hardware (Connected)
+                            </span>
+                          ) : (
+                            <span className="hw" style={{ background: '#f1f5f9', color: '#64748b' }}>
+                              <span className="pulse" style={{ color: '#94a3b8' }} />
+                              Standby (Virtual Mesh)
+                            </span>
+                          )
+                        })()}
                         <span className="coords">Lat {station.lat}, Lng {station.lng}</span>
                       </div>
                     </div>
