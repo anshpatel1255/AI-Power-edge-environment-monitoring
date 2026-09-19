@@ -10,6 +10,7 @@ export default function MapPage() {
   const selectedRegion = useStore((s) => s.selectedRegion)
 
   const [categoryFilter, setCategoryFilter] = useState('all')
+  const [mapMode, setMapMode] = useState('normal') // 'normal' | 'satellite' | 'night'
   const [placementMode, setPlacementMode] = useState(false)
   const [clickedCoords, setClickedCoords] = useState(null)
   const [timeHour, setTimeHour] = useState(24) // 24 = "Now"
@@ -66,8 +67,54 @@ export default function MapPage() {
           ))}
         </div>
 
-        {/* Right: Layer Controls & Placement Trigger */}
-        <div className="pointer-events-auto bg-white/95 backdrop-blur-md border border-slate-200/90 rounded-full p-1.5 shadow-[0_4px_20px_-2px_rgba(15,23,42,0.08)] flex items-center gap-2">
+        {/* Right: Map Modes, Layer Controls & Placement Trigger */}
+        <div className="pointer-events-auto bg-white/95 backdrop-blur-md border border-slate-200/90 rounded-full p-1.5 shadow-[0_4px_20px_-2px_rgba(15,23,42,0.08)] flex items-center gap-2 flex-wrap">
+          {/* Map Mode Buttons: Normal | Satellite | Night */}
+          <div className="flex items-center bg-slate-100/90 rounded-full p-0.5 border border-slate-200/80">
+            <button
+              type="button"
+              onClick={() => setMapMode('normal')}
+              className={clsx(
+                'px-3 py-1 rounded-full text-xs font-mono font-bold transition-all flex items-center gap-1',
+                mapMode === 'normal'
+                  ? 'bg-white text-blue-600 shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
+              )}
+              title="OpenStreetMap Standard — detailed streets, landmarks and rivers"
+            >
+              <span>🗺️</span>
+              <span className="hidden md:inline">Normal</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setMapMode('satellite')}
+              className={clsx(
+                'px-3 py-1 rounded-full text-xs font-mono font-bold transition-all flex items-center gap-1',
+                mapMode === 'satellite'
+                  ? 'bg-emerald-600 text-white shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
+              )}
+              title="Esri World Imagery — high-definition photorealistic satellite"
+            >
+              <span>🛰️</span>
+              <span className="hidden md:inline">Satellite</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setMapMode('night')}
+              className={clsx(
+                'px-3 py-1 rounded-full text-xs font-mono font-bold transition-all flex items-center gap-1',
+                mapMode === 'night'
+                  ? 'bg-slate-900 text-white shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
+              )}
+              title="Tactical Dark Gray — optimal for nighttime and low-light operation"
+            >
+              <span>🌙</span>
+              <span className="hidden md:inline">Night</span>
+            </button>
+          </div>
+
           <button
             onClick={() => setShowRings(!showRings)}
             className={clsx(
@@ -139,6 +186,9 @@ export default function MapPage() {
         onMapClick={handleMapClick}
         showCorrelationRings={showRings}
         showWindDrift={showWind}
+        mode={mapMode}
+        onModeChange={setMapMode}
+        showModeSwitcher={false}
       />
 
       {/* ─── Modal for Click-to-Deploy Sensor ───────────────────────────── */}

@@ -3,7 +3,42 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useStore, SENSOR_CATEGORIES } from '../store/useStore'
 import RiskMap from '../components/map/RiskMap'
 import LiveTelemetryStreamSection from '../components/dashboard/LiveTelemetryStreamSection'
+import { AreaChart, Area, ResponsiveContainer } from 'recharts'
 import clsx from 'clsx'
+
+const CATEGORY_SPARKLINES = {
+  flood:  [{ v: 12 }, { v: 16 }, { v: 22 }, { v: 34 }, { v: 48 }, { v: 62 }, { v: 58 }],
+  fire:   [{ v: 24 }, { v: 28 }, { v: 31 }, { v: 29 }, { v: 35 }, { v: 38 }, { v: 34 }],
+  air:    [{ v: 45 }, { v: 52 }, { v: 68 }, { v: 85 }, { v: 78 }, { v: 72 }, { v: 65 }],
+  chem:   [{ v: 15 }, { v: 18 }, { v: 22 }, { v: 26 }, { v: 24 }, { v: 21 }, { v: 19 }],
+  seismic:[{ v: 8 },  { v: 9 },  { v: 14 }, { v: 26 }, { v: 12 }, { v: 10 }, { v: 9  }],
+}
+
+function CategorySparkline({ category, color, gradientId }) {
+  const data = CATEGORY_SPARKLINES[category] || CATEGORY_SPARKLINES.flood
+  return (
+    <div className="w-full h-8 mt-1">
+      <ResponsiveContainer width="100%" height="100%">
+        <AreaChart data={data} margin={{ top: 2, right: 0, left: 0, bottom: 0 }}>
+          <defs>
+            <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={color} stopOpacity={0.4} />
+              <stop offset="100%" stopColor={color} stopOpacity={0.0} />
+            </linearGradient>
+          </defs>
+          <Area
+            type="monotone"
+            dataKey="v"
+            stroke={color}
+            strokeWidth={2}
+            fill={`url(#${gradientId})`}
+            dot={false}
+          />
+        </AreaChart>
+      </ResponsiveContainer>
+    </div>
+  )
+}
 
 // ─── ESP32 Node Card — shows only the sensors relevant to each node type ─────
 function Esp32NodeCard({ node }) {
@@ -252,80 +287,80 @@ export default function Dashboard() {
 
         {/* Alert count card */}
         <div className={clsx(
-          'rounded-3xl p-6 flex flex-col justify-between transition-all duration-300 shadow-[0_4px_20px_-2px_rgba(15,23,42,0.05)] hover:shadow-[0_15px_35px_-5px_rgba(37,99,235,0.12)] hover:-translate-y-0.5',
+          'rounded-3xl p-6 flex flex-col justify-between transition-all duration-300 backdrop-blur-xl shadow-[0_10px_30px_-5px_rgba(15,23,42,0.05),inset_0_1px_2px_rgba(255,255,255,0.8)] hover:shadow-[0_20px_40px_-5px_rgba(37,99,235,0.14)] hover:-translate-y-0.5',
           activeAlerts.length > 0
-            ? 'bg-gradient-to-br from-rose-50/90 to-red-50/70 border-2 border-red-300'
-            : 'bg-white border border-slate-200/90 hover:border-blue-300'
+            ? 'bg-rose-50/80 dark:bg-rose-950/40 border-2 border-red-300/80 dark:border-red-500/40'
+            : 'bg-white/80 dark:bg-slate-900/80 border border-white/80 dark:border-slate-800 hover:border-blue-300/80'
         )}>
           <div className="flex items-center justify-between">
             <span className={clsx(
               'text-[10px] font-extrabold tracking-widest uppercase',
-              activeAlerts.length > 0 ? 'text-red-700' : 'text-slate-500'
+              activeAlerts.length > 0 ? 'text-red-700 dark:text-red-400' : 'text-slate-500 dark:text-slate-400'
             )}>Critical Alerts</span>
             {activeAlerts.length > 0 ? (
               <span className="bg-red-500 text-white text-[9px] font-mono font-bold px-2.5 py-0.5 rounded-full animate-pulse shadow-sm">ACTIVE</span>
             ) : (
-              <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[9px] font-mono font-bold px-2.5 py-0.5 rounded-full">ALL CLEAR</span>
+              <span className="bg-emerald-50/90 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/60 text-[9px] font-mono font-bold px-2.5 py-0.5 rounded-full shadow-xs">ALL CLEAR</span>
             )}
           </div>
           <div className="my-4 flex items-baseline justify-between">
-            <div className={clsx('text-5xl font-mono font-extrabold leading-none', activeAlerts.length > 0 ? 'text-red-600' : 'text-slate-900')}>
+            <div className={clsx('text-5xl font-mono font-extrabold leading-none', activeAlerts.length > 0 ? 'text-red-600 dark:text-red-400' : 'text-slate-900 dark:text-white')}>
               {activeAlerts.length}
             </div>
-            <Link to="/alerts" className={clsx('text-xs font-bold hover:underline underline-offset-2', activeAlerts.length > 0 ? 'text-red-600' : 'text-blue-600')}>
+            <Link to="/alerts" className={clsx('text-xs font-bold hover:underline underline-offset-2', activeAlerts.length > 0 ? 'text-red-600 dark:text-red-400' : 'text-blue-600 dark:text-cyan-400')}>
               Review Queue →
             </Link>
           </div>
           <div className="space-y-2">
-            <div className="w-full h-2 bg-slate-100 rounded-full overflow-hidden flex">
+            <div className="w-full h-2 bg-slate-100/90 dark:bg-slate-800/80 rounded-full overflow-hidden flex">
               <div className="bg-red-500 h-full rounded-full" style={{ width: `${(alerts.filter((a) => a.severity === 'emergency').length / (alerts.length || 1)) * 100}%` }} />
               <div className="bg-amber-400 h-full" style={{ width: `${(alerts.filter((a) => a.severity === 'warning').length / (alerts.length || 1)) * 100}%` }} />
               <div className="bg-emerald-500 h-full" style={{ width: `${(alerts.filter((a) => a.severity === 'watch').length / (alerts.length || 1)) * 100}%` }} />
             </div>
-            <div className="text-[10px] text-slate-500 font-medium">
+            <div className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
               {alerts.filter((a) => a.severity === 'emergency').length} Emergency · {alerts.filter((a) => a.severity === 'warning').length} Warning
             </div>
           </div>
         </div>
 
         {/* Fleet online card */}
-        <div className="bg-white border border-slate-200/90 rounded-3xl p-6 shadow-[0_4px_20px_-2px_rgba(15,23,42,0.05)] hover:shadow-[0_15px_35px_-5px_rgba(37,99,235,0.12)] hover:-translate-y-0.5 hover:border-blue-300 transition-all duration-300 flex flex-col justify-between">
+        <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-white/80 dark:border-slate-800 rounded-3xl p-6 shadow-[0_10px_30px_-5px_rgba(15,23,42,0.05),inset_0_1px_2px_rgba(255,255,255,0.8)] hover:shadow-[0_20px_40px_-5px_rgba(37,99,235,0.14)] hover:-translate-y-0.5 hover:border-blue-300/80 transition-all duration-300 flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-widest">LoRa Fleet Online</span>
+            <span className="text-[10px] font-extrabold text-slate-500 dark:text-slate-400 uppercase tracking-widest">LoRa Fleet Online</span>
             <span className="relative flex h-3 w-3">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75" />
               <span className="relative inline-flex rounded-full h-3 w-3 bg-cyan-500" />
             </span>
           </div>
           <div className="my-4 flex items-baseline justify-between">
-            <div className="text-5xl font-mono font-extrabold text-slate-900">{onlineCount}</div>
-            <span className="text-xs font-mono font-bold text-blue-700 bg-blue-50 border border-blue-200/80 px-2.5 py-0.5 rounded-full shadow-xs">
+            <div className="text-5xl font-mono font-extrabold text-slate-900 dark:text-white">{onlineCount}</div>
+            <span className="text-xs font-mono font-bold text-blue-700 dark:text-blue-300 bg-blue-50/90 dark:bg-blue-900/40 border border-blue-200/80 dark:border-blue-700/60 px-2.5 py-0.5 rounded-full shadow-xs">
               {((onlineCount / (totalCount || 1)) * 100).toFixed(0)}% mesh active
             </span>
           </div>
-          <div className="text-[11px] text-slate-500 flex items-center justify-between font-medium">
+          <div className="text-[11px] text-slate-500 dark:text-slate-400 flex items-center justify-between font-medium">
             <span>433MHz LoRa + WiFi 6</span>
-            <Link to="/fleet" className="text-blue-600 hover:underline font-bold">Fleet View →</Link>
+            <Link to="/fleet" className="text-blue-600 dark:text-cyan-400 hover:underline font-bold">Fleet View →</Link>
           </div>
         </div>
 
         {/* Latency card */}
-        <div className="bg-gradient-to-br from-blue-50/90 via-sky-50/70 to-cyan-50/80 border border-blue-200/90 rounded-3xl p-6 shadow-[0_4px_20px_-2px_rgba(15,23,42,0.05)] hover:shadow-[0_15px_35px_-5px_rgba(37,99,235,0.12)] hover:-translate-y-0.5 hover:border-blue-400 transition-all duration-300 flex flex-col justify-between">
+        <div className="bg-gradient-to-br from-blue-50/80 via-sky-50/70 to-cyan-50/80 dark:from-slate-900/80 dark:via-blue-950/40 dark:to-cyan-950/30 backdrop-blur-xl border border-blue-200/80 dark:border-blue-800/60 rounded-3xl p-6 shadow-[0_10px_30px_-5px_rgba(15,23,42,0.05),inset_0_1px_2px_rgba(255,255,255,0.8)] hover:shadow-[0_20px_40px_-5px_rgba(37,99,235,0.14)] hover:-translate-y-0.5 hover:border-blue-400/80 transition-all duration-300 flex flex-col justify-between">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-extrabold text-blue-900 uppercase tracking-widest">On-Device Inference</span>
+            <span className="text-[10px] font-extrabold text-blue-900 dark:text-blue-300 uppercase tracking-widest">On-Device Inference</span>
             <span className="text-lg">⚡</span>
           </div>
           <div className="my-4 flex items-baseline justify-between">
-            <div className="text-4xl font-mono font-extrabold text-blue-600">&lt;180ms</div>
-            <span className="text-xs font-mono font-bold text-blue-800 bg-blue-100/90 border border-blue-200 px-2.5 py-0.5 rounded-full shadow-xs">TinyML Micro</span>
+            <div className="text-4xl font-mono font-extrabold text-blue-600 dark:text-cyan-400">&lt;180ms</div>
+            <span className="text-xs font-mono font-bold text-blue-800 dark:text-blue-200 bg-blue-100/90 dark:bg-blue-900/50 border border-blue-200/80 dark:border-blue-700/60 px-2.5 py-0.5 rounded-full shadow-xs">TinyML Micro</span>
           </div>
-          <div className="text-[11px] text-blue-800/90 font-medium">
+          <div className="text-[11px] text-blue-800/90 dark:text-blue-300/90 font-medium">
             Autonomous statistical classification with zero cloud lag
           </div>
         </div>
 
         {/* Grid focus card */}
-        <div className="bg-gradient-to-br from-blue-600 via-sky-600 to-cyan-500 border border-blue-400/30 rounded-3xl p-6 shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/35 hover:-translate-y-0.5 transition-all duration-300 flex flex-col justify-between text-white">
+        <div className="bg-gradient-to-br from-blue-600 via-sky-600 to-cyan-500 border border-white/20 rounded-3xl p-6 shadow-lg shadow-blue-500/25 hover:shadow-xl hover:shadow-blue-500/35 hover:-translate-y-0.5 transition-all duration-300 flex flex-col justify-between text-white ring-1 ring-white/30 backdrop-blur-xl">
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-extrabold text-blue-100 uppercase tracking-widest">Spatial Catchment Grid</span>
             <span className="text-lg">🗺️</span>
@@ -334,14 +369,14 @@ export default function Dashboard() {
             <div className="text-3xl font-extrabold capitalize text-white">
               {selectedRegion === 'all' ? 'Tapi Basin' : selectedRegion}
             </div>
-            <span className="text-xs font-mono text-white font-bold bg-white/20 border border-white/30 px-2.5 py-0.5 rounded-full backdrop-blur-xs">15km IDW</span>
+            <span className="text-xs font-mono text-white font-bold bg-white/20 border border-white/30 px-2.5 py-0.5 rounded-full backdrop-blur-xs shadow-xs">15km IDW</span>
           </div>
           <div className="text-[11px] text-blue-100/90 font-medium">Multi-Sensor Spatial Co-Validation</div>
         </div>
       </div>
 
       {/* ─── 2. Sensor Category Health Grid (Landing Reference) ──────────────── */}
-      <div className="bg-white border border-slate-200/90 rounded-3xl p-6 shadow-[0_4px_20px_-2px_rgba(15,23,42,0.05)] space-y-4">
+      <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-white/80 dark:border-slate-800 rounded-3xl p-6 shadow-[0_10px_30px_-5px_rgba(15,23,42,0.05),inset_0_1px_2px_rgba(255,255,255,0.8)] space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div>
             <h2 className="text-base font-extrabold text-slate-900 tracking-tight">Sensor Fleet Telemetry by Hazard Category</h2>
@@ -356,27 +391,34 @@ export default function Dashboard() {
           {SENSOR_CATEGORIES.map((cat) => {
             const catNodes  = nodes.filter((n) => n.category === cat.id)
             const alertNodes = catNodes.filter((n) => n.risk_score >= 50)
-            const hasAlert   = alertNodes.length > 0
+            const colorMap = {
+              flood: '#06b6d4',
+              fire: '#f97316',
+              air: '#8b5cf6',
+              chem: '#eab308',
+              seismic: '#10b981',
+            }
+            const sparkColor = hasAlert ? '#ef4444' : (colorMap[cat.id] || '#2563eb')
 
             return (
               <div
                 key={cat.id}
                 className={clsx(
-                  'rounded-2xl p-4.5 space-y-3 transition-all duration-300',
+                  'rounded-3xl p-4.5 space-y-2.5 transition-all duration-300 backdrop-blur-xl',
                   hasAlert
-                    ? 'bg-gradient-to-br from-amber-50 to-orange-50/70 border-2 border-amber-300 shadow-sm'
-                    : 'bg-[#f8fafc] border border-slate-200/90 hover:bg-white hover:border-blue-300 hover:shadow-md'
+                    ? 'bg-amber-50/80 dark:bg-amber-950/40 border-2 border-amber-300 shadow-sm'
+                    : 'bg-white/80 dark:bg-slate-900/80 border border-white/80 dark:border-slate-800 hover:border-blue-300 hover:shadow-lg shadow-[0_4px_20px_-2px_rgba(15,23,42,0.05),inset_0_1px_2px_rgba(255,255,255,0.8)]'
                 )}
               >
                 <div className="flex items-center justify-between">
                   <div className={clsx(
-                    'w-9 h-9 rounded-xl flex items-center justify-center text-lg shadow-sm',
-                    hasAlert ? 'bg-amber-100 text-amber-700' : 'bg-white border border-slate-200/80'
+                    'w-9 h-9 rounded-2xl flex items-center justify-center text-lg shadow-sm',
+                    hasAlert ? 'bg-amber-100 text-amber-700' : 'bg-slate-50 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700'
                   )}>
                     {cat.icon}
                   </div>
                   <span className={clsx(
-                    'text-[9px] font-mono font-bold px-2.5 py-0.5 rounded-full',
+                    'text-[9px] font-mono font-bold px-2.5 py-0.5 rounded-full shadow-xs',
                     hasAlert
                       ? 'bg-amber-100 text-amber-800 border border-amber-200'
                       : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
@@ -385,9 +427,13 @@ export default function Dashboard() {
                   </span>
                 </div>
                 <div>
-                  <div className="text-xs font-bold text-slate-900">{cat.name}</div>
-                  <div className="text-[11px] text-slate-500 font-mono mt-0.5">{catNodes.length} Nodes Active</div>
+                  <div className="text-xs font-bold text-slate-900 dark:text-white">{cat.name}</div>
+                  <div className="text-[11px] text-slate-500 dark:text-slate-400 font-mono mt-0.5">{catNodes.length} Nodes Active</div>
                 </div>
+
+                {/* Glowing Sparkline Wave Chart */}
+                <CategorySparkline category={cat.id} color={sparkColor} gradientId={`catSpark_${cat.id}`} />
+
                 <div className="text-[10px] text-slate-400 truncate font-mono">{cat.metrics.join(' · ')}</div>
               </div>
             )

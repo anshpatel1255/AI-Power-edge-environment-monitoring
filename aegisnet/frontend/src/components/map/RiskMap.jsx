@@ -1,19 +1,75 @@
-// components/map/RiskMap.jsx — Light Positron Basemap with Correlation Rings & Drift Vectors
+// components/map/RiskMap.jsx — Environmental Risk Map with Normal, Satellite & Night Modes
 import { MapContainer, TileLayer, CircleMarker, Circle, Popup, Polyline, Tooltip, useMap, useMapEvents } from 'react-leaflet'
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { SENSOR_CATEGORIES } from '../../store/useStore'
+import clsx from 'clsx'
 import 'leaflet/dist/leaflet.css'
 
 const GUJARAT_CENTER = [23.12, 72.62]
 const DEFAULT_ZOOM = 11
 
+export const MAP_MODES = {
+  normal: {
+    id: 'normal',
+    label: 'Normal Map',
+    shortLabel: 'Normal',
+    icon: '🗺️',
+    description: 'High-detail OpenStreetMap with street, river and sector clarity',
+    layers: [
+      {
+        url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        maxZoom: 19,
+      },
+    ],
+  },
+  satellite: {
+    id: 'satellite',
+    label: 'Satellite',
+    shortLabel: 'Satellite',
+    icon: '🛰️',
+    description: 'Real photorealistic satellite imagery with hybrid geographic labels',
+    layers: [
+      {
+        url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+        attribution: '&copy; <a href="https://www.esri.com">Esri</a>, Maxar, Earthstar Geographics',
+        maxZoom: 19,
+      },
+      {
+        url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
+        attribution: '',
+        maxZoom: 19,
+      },
+    ],
+  },
+  night: {
+    id: 'night',
+    label: 'Night Mode',
+    shortLabel: 'Night',
+    icon: '🌙',
+    description: 'Tactical dark mode canvas with high-contrast emergency visualization',
+    layers: [
+      {
+        url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}',
+        attribution: '&copy; <a href="https://www.esri.com">Esri</a>, HERE, Garmin',
+        maxZoom: 16,
+      },
+      {
+        url: 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}',
+        attribution: '',
+        maxZoom: 16,
+      },
+    ],
+  },
+}
+
 function getSeverityColor(node) {
   if (node.status === 'offline') return '#94A3B8'
-  if (node.severity === 'emergency' || node.risk_score >= 70) return '#C62828'
-  if (node.severity === 'warning' || node.risk_score >= 50) return '#E0621A'
-  if (node.severity === 'watch' || node.risk_score >= 35) return '#B58900'
-  return '#2E7D32' // Advisory / Normal
+  if (node.severity === 'emergency' || node.risk_score >= 70) return '#EF4444' // Red
+  if (node.severity === 'warning' || node.risk_score >= 50) return '#F97316'   // Amber-Orange
+  if (node.severity === 'watch' || node.risk_score >= 35) return '#EAB308'     // Yellow
+  return '#10B981' // Green (Advisory / Normal)
 }
 
 function MapFlyTo({ center, zoom }) {
@@ -50,7 +106,19 @@ export default function RiskMap({
   onMapClick = null,
   showCorrelationRings = true,
   showWindDrift = true,
+  mode = null,
+  onModeChange = null,
+  showModeSwitcher = true,
 }) {
+  const [internalMode, setInternalMode] = useState('normal')
+  const activeMode = mode || internalMode
+  const modeConfig = MAP_MODES[activeMode] || MAP_MODES.normal
+
+  const handleSelectMode = (newMode) => {
+    setInternalMode(newMode)
+    if (onModeChange) onModeChange(newMode)
+  }
+
   // Correlated alert nodes (high risk)
   const highRiskNodes = nodes.filter((n) => n.risk_score >= 50)
 
@@ -60,19 +128,53 @@ export default function RiskMap({
     : []
 
   return (
-    <div style={{ height, width: '100%' }} className="relative">
+    <div style={{ height, width: '100%' }} className="relative overflow-hidden">
+      {/* ─── Floating 3-Mode Map Switcher ─────────────────────────────── */}
+      {showModeSwitcher && (
+        <div className="absolute top-3 right-3 z-[450] bg-white/95 backdrop-blur-md border border-slate-200/90 rounded-2xl p-1 shadow-[0_8px_30px_rgb(0,0,0,0.12)] flex items-center gap-1 font-sans">
+          {Object.values(MAP_MODES).map((m) => {
+            const isSelected = activeMode === m.id
+            return (
+              <button
+                key={m.id}
+                type="button"
+                onClick={() => handleSelectMode(m.id)}
+                className={clsx(
+                  'flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-mono font-bold transition-all duration-200',
+                  isSelected
+                    ? m.id === 'night'
+                      ? 'bg-slate-900 text-white shadow-md'
+                      : m.id === 'satellite'
+                        ? 'bg-emerald-600 text-white shadow-md shadow-emerald-600/30'
+                        : 'bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-md shadow-blue-500/25'
+                    : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                )}
+                title={m.description}
+              >
+                <span>{m.icon}</span>
+                <span className="hidden sm:inline">{m.label}</span>
+              </button>
+            )
+          })}
+        </div>
+      )}
+
+      {/* ─── Leaflet Map Container ───────────────────────────────────── */}
       <MapContainer
         center={center}
         zoom={zoom}
         style={{ height: '100%', width: '100%' }}
         scrollWheelZoom={true}
       >
-        {/* Light Positron CartoDB Basemap Tiles */}
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
-          url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-          maxZoom={19}
-        />
+        {/* Dynamic Tile Layers according to selected mode */}
+        {modeConfig.layers.map((layer, idx) => (
+          <TileLayer
+            key={`${activeMode}-${idx}-${layer.url}`}
+            url={layer.url}
+            attribution={layer.attribution || undefined}
+            maxZoom={layer.maxZoom || 19}
+          />
+        ))}
 
         <MapFlyTo center={center} zoom={zoom} />
         <MapClickHandler onMapClick={onMapClick} placementMode={placementMode} />
@@ -82,7 +184,7 @@ export default function RiskMap({
           <>
             <Polyline
               positions={correlationLines}
-              pathOptions={{ color: '#C62828', weight: 2, dashArray: '6, 8', opacity: 0.8 }}
+              pathOptions={{ color: '#EF4444', weight: 2.5, dashArray: '6, 8', opacity: 0.9 }}
             />
             {highRiskNodes.map((n) => (
               <Circle
@@ -90,10 +192,10 @@ export default function RiskMap({
                 center={[n.latitude, n.longitude]}
                 radius={2400}
                 pathOptions={{
-                  color: '#C62828',
-                  fillColor: '#C62828',
-                  fillOpacity: 0.08,
-                  weight: 1.5,
+                  color: '#EF4444',
+                  fillColor: '#EF4444',
+                  fillOpacity: 0.12,
+                  weight: 2,
                   dashArray: '4, 4',
                 }}
               />
@@ -109,7 +211,7 @@ export default function RiskMap({
               [23.0150, 72.6350], // Downwind Plume Sector
               [23.0350, 72.6650],
             ]}
-            pathOptions={{ color: '#6B4FA0', weight: 3, opacity: 0.6, dashArray: '4, 6' }}
+            pathOptions={{ color: '#8B5CF6', weight: 3.5, opacity: 0.75, dashArray: '5, 8' }}
           />
         )}
 
@@ -246,7 +348,6 @@ export default function RiskMap({
               </CircleMarker>
             </div>
           )
-
         })}
       </MapContainer>
     </div>
