@@ -2,6 +2,7 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { useStore, SENSOR_CATEGORIES } from '../store/useStore'
 import RiskMap from '../components/map/RiskMap'
+import LiveTelemetryStreamSection from '../components/dashboard/LiveTelemetryStreamSection'
 import clsx from 'clsx'
 
 // ─── ESP32 Node Card — shows only the sensors relevant to each node type ─────
@@ -160,6 +161,10 @@ export default function Dashboard() {
   const esp32Nodes      = useStore((s) => s.esp32Nodes)
   const socketConnected = useStore((s) => s.socketConnected)
   const hardwareMode    = useStore((s) => s.hardwareMode)
+  const usbConnected    = useStore((s) => s.usbConnected)
+  const usbPortName     = useStore((s) => s.usbPortName)
+  const usbPacketCount  = useStore((s) => s.usbPacketCount)
+  const setUsbModalOpen = useStore((s) => s.setUsbModalOpen)
 
   const onlineCount     = nodes.filter((n) => n.status === 'online').length
   const totalCount      = nodes.length
@@ -169,47 +174,76 @@ export default function Dashboard() {
   return (
     <div className="max-w-7xl mx-auto px-4 lg:px-6 py-6 space-y-6 font-sans animate-slide-up">
 
-      {/* ─── 0. ESP32 Live Hardware Panel (shown when ESP32 is connected) ──── */}
-      {esp32Nodes.length > 0 && (
-        <div className="rounded-3xl border-2 border-emerald-300 bg-gradient-to-br from-emerald-50/80 to-teal-50/60 p-5 shadow-md space-y-4">
+      {/* ─── 0. ESP32 Live Hardware Integration Panel ─────────────────────── */}
+      {usbConnected || esp32Nodes.length > 0 ? (
+        <div className="rounded-3xl border-2 border-emerald-400 bg-gradient-to-br from-emerald-50/90 to-teal-50/70 p-5 shadow-md space-y-4">
           {/* Banner */}
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-emerald-500 flex items-center justify-center shadow-sm">
-                <span className="text-white text-xl">🔌</span>
+              <div className="w-10 h-10 rounded-2xl bg-emerald-600 flex items-center justify-center shadow-md ring-2 ring-emerald-400/40 text-white text-xl">
+                ⚡
               </div>
               <div>
-                <div className="text-sm font-extrabold text-emerald-800 tracking-tight">
-                  Live ESP32 Hardware Connected
+                <div className="text-sm font-extrabold text-emerald-900 tracking-tight flex items-center gap-2">
+                  <span>ESP32 Gateway USB Stream Active</span>
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping inline-block" />
                 </div>
-                <div className="text-xs text-emerald-600">
-                  {esp32Nodes.length} node{esp32Nodes.length > 1 ? 's' : ''} detected via USB Serial Bridge · Auto-monitoring active
+                <div className="text-xs text-emerald-700 font-medium mt-0.5">
+                  Connected on {usbPortName || 'USB Port'} · {esp32Nodes.length} of 3 sensor nodes reporting · {usbPacketCount} packets ingested
                 </div>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <span className={clsx(
-                'text-[10px] font-bold px-3 py-1 rounded-full border',
-                socketConnected
-                  ? 'bg-emerald-100 text-emerald-700 border-emerald-300'
-                  : 'bg-slate-100 text-slate-500 border-slate-200'
-              )}>
-                {socketConnected ? '● Backend Connected' : '○ Backend Offline'}
-              </span>
-              <span className="text-[10px] font-bold px-3 py-1 rounded-full border bg-blue-100 text-blue-700 border-blue-300">
-                MODE: {hardwareMode.toUpperCase()}
+
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                type="button"
+                onClick={() => setUsbModalOpen(true)}
+                className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs px-3.5 py-1.5 rounded-xl shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+              >
+                <span>📟</span>
+                <span>Open Serial Terminal</span>
+              </button>
+              <span className="text-[10px] font-mono font-bold px-3 py-1 rounded-full border bg-emerald-100 text-emerald-800 border-emerald-300">
+                MODE: LIVE HARDWARE
               </span>
             </div>
           </div>
 
-          {/* Node cards grid */}
+          {/* 3 Node Cards Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {esp32Nodes.map((node) => (
               <Esp32NodeCard key={node.node_id} node={node} />
             ))}
           </div>
         </div>
+      ) : (
+        <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-xs flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-slate-100 flex items-center justify-center text-slate-700 text-lg">
+              🔌
+            </div>
+            <div>
+              <div className="text-xs font-bold text-slate-900">
+                Connect Physical ESP32 via USB Port
+              </div>
+              <div className="text-[11px] text-slate-500">
+                Plug in your ESP32 Gateway to stream live dynamic readings from the 3 field sensor nodes directly to this website
+              </div>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setUsbModalOpen(true)}
+            className="bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold px-4 py-2 rounded-xl shadow-xs transition-colors flex items-center gap-1.5 cursor-pointer"
+          >
+            <span>⚡</span>
+            <span>Connect USB ESP32</span>
+          </button>
+        </div>
       )}
+
+      {/* ─── 0.5 Live Multi-Sensor Telemetry Stream & Trend Matrix (Live Up & Down) ─── */}
+      <LiveTelemetryStreamSection />
 
       {/* ─── 1. Hero Metric Strip (Landing Page Aesthetic, Curved 3XL) ───────── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

@@ -119,70 +119,134 @@ export default function RiskMap({
           const isEmergency = node.risk_score >= 70
           const catInfo = SENSOR_CATEGORIES.find((c) => c.id === node.category)
 
+          const isEsp32 = node.node_id?.includes('ESP32') || node.connectivity?.includes('USB')
+
           return (
-            <CircleMarker
-              key={node.node_id}
-              center={[node.latitude, node.longitude]}
-              radius={isEmergency ? 11 : 8}
-              pathOptions={{
-                color: '#FFFFFF',
-                weight: 2,
-                fillColor: color,
-                fillOpacity: 0.95,
-              }}
-            >
-              <Tooltip direction="top" offset={[0, -8]} opacity={0.95}>
-                <span className="font-mono text-xs font-bold">
-                  {catInfo?.icon} {node.node_id} — {node.severity.toUpperCase()} ({node.risk_score}%)
-                </span>
-              </Tooltip>
+            <div key={node.node_id}>
+              {/* Outer pulsing ring for live physical ESP32 hardware nodes */}
+              {isEsp32 && (
+                <Circle
+                  center={[node.latitude, node.longitude]}
+                  radius={isEmergency ? 3200 : 2200}
+                  pathOptions={{
+                    color: color,
+                    fillColor: color,
+                    fillOpacity: 0.15,
+                    weight: 2,
+                    dashArray: '4, 4',
+                  }}
+                />
+              )}
 
-              <Popup>
-                <div className="p-1 space-y-2 text-xs font-sans min-w-[200px]">
-                  <div className="flex items-center justify-between border-b border-[#E3E8EF] pb-1.5">
-                    <span className="font-bold text-[#0F172A] font-mono">{node.node_id}</span>
-                    <span
-                      className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold uppercase text-white"
-                      style={{ backgroundColor: color }}
-                    >
-                      {node.severity}
-                    </span>
-                  </div>
+              <CircleMarker
+                center={[node.latitude, node.longitude]}
+                radius={isEsp32 ? (isEmergency ? 14 : 11) : (isEmergency ? 11 : 8)}
+                pathOptions={{
+                  color: isEsp32 ? '#FFFFFF' : '#FFFFFF',
+                  weight: isEsp32 ? 3 : 2,
+                  fillColor: color,
+                  fillOpacity: 0.98,
+                }}
+              >
+                <Tooltip direction="top" offset={[0, -8]} opacity={0.95}>
+                  <span className="font-mono text-xs font-bold">
+                    {isEsp32 ? '⚡ ' : ''}{catInfo?.icon} {node.node_id} — {node.severity.toUpperCase()} ({node.risk_score}%)
+                  </span>
+                </Tooltip>
 
-                  <div>
-                    <div className="font-semibold text-[#0F172A]">{node.name}</div>
-                    <div className="text-[11px] text-[#475569]">{node.location}</div>
-                  </div>
+                <Popup>
+                  <div className="p-1 space-y-2 text-xs font-sans min-w-[220px]">
+                    <div className="flex items-center justify-between border-b border-slate-200 pb-1.5">
+                      <div className="flex items-center gap-1.5">
+                        {isEsp32 && <span className="bg-emerald-600 text-white text-[9px] font-mono font-bold px-1.5 py-0.2 rounded-full">LIVE USB</span>}
+                        <span className="font-bold text-slate-900 font-mono">{node.node_id}</span>
+                      </div>
+                      <span
+                        className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold uppercase text-white"
+                        style={{ backgroundColor: color }}
+                      >
+                        {node.severity}
+                      </span>
+                    </div>
 
-                  <div className="grid grid-cols-2 gap-1.5 bg-[#F7F9FB] p-2 rounded-lg text-[11px] font-mono">
                     <div>
-                      <span className="text-[#475569]">Risk:</span>{' '}
-                      <b style={{ color }}>{node.risk_score}/100</b>
+                      <div className="font-semibold text-slate-900">{node.name}</div>
+                      <div className="text-[11px] text-slate-500">{node.location}</div>
                     </div>
-                    <div>
-                      <span className="text-[#475569]">Battery:</span> <b>{node.battery_pct}%</b>
-                    </div>
-                    <div>
-                      <span className="text-[#475569]">Link:</span> <b>{node.connectivity?.split(' ')[0]}</b>
-                    </div>
-                    <div>
-                      <span className="text-[#475569]">Siren:</span>{' '}
-                      <b>{node.local_siren ? '🚨 ACTIVE' : 'Idle'}</b>
-                    </div>
-                  </div>
 
-                  <div className="pt-1 flex justify-end">
-                    <Link
-                      to={`/nodes/${node.node_id}`}
-                      className="text-[11px] text-[#0B6E4F] hover:underline font-mono font-bold"
-                    >
-                      Inspect Telemetry Spec →
-                    </Link>
+                    {/* Live Physical Metrics for ESP32 Nodes */}
+                    {isEsp32 && (
+                      <div className="bg-emerald-50/80 border border-emerald-200 p-2 rounded-xl text-[11px] font-mono space-y-1">
+                        {node.water_level_cm != null && (
+                          <div className="flex justify-between">
+                            <span className="text-slate-600">Water Depth:</span>
+                            <b className="text-blue-700">{node.water_level_cm.toFixed(1)} cm</b>
+                          </div>
+                        )}
+                        {node.soil_moisture != null && (
+                          <div className="flex justify-between">
+                            <span className="text-slate-600">Soil Moisture:</span>
+                            <b className="text-blue-700">{node.soil_moisture.toFixed(1)} %</b>
+                          </div>
+                        )}
+                        {node.gas_ppm != null && (
+                          <div className="flex justify-between">
+                            <span className="text-slate-600">CO Gas (MQ-7):</span>
+                            <b className="text-orange-700">{node.gas_ppm.toFixed(2)} ppm</b>
+                          </div>
+                        )}
+                        {node.temperature_c != null && (
+                          <div className="flex justify-between">
+                            <span className="text-slate-600">Temperature:</span>
+                            <b className="text-orange-700">{node.temperature_c.toFixed(1)} °C</b>
+                          </div>
+                        )}
+                        {node.smoke_aqi != null && (
+                          <div className="flex justify-between">
+                            <span className="text-slate-600">PM2.5 AQI:</span>
+                            <b className="text-purple-700">{node.smoke_aqi} µg/m³</b>
+                          </div>
+                        )}
+                        {node.mq135_strength != null && (
+                          <div className="flex justify-between">
+                            <span className="text-slate-600">MQ-135 NH3:</span>
+                            <b className="text-purple-700">{node.mq135_strength.toFixed(0)} %</b>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-2 gap-1.5 bg-slate-50 p-2 rounded-xl text-[11px] font-mono border border-slate-100">
+                      <div>
+                        <span className="text-slate-500">Risk:</span>{' '}
+                        <b style={{ color }}>{node.risk_score}/100</b>
+                      </div>
+                      <div>
+                        <span className="text-slate-500">Battery:</span> <b>{node.battery_pct}%</b>
+                      </div>
+                      <div>
+                        <span className="text-slate-500">Link:</span> <b>{isEsp32 ? 'USB COM7' : (node.connectivity?.split(' ')[0] || 'Mesh')}</b>
+                      </div>
+                      <div>
+                        <span className="text-slate-500">Siren:</span>{' '}
+                        <b>{node.local_siren || node.risk_score >= 80 ? '🚨 ACTIVE' : 'Idle'}</b>
+                      </div>
+                    </div>
+
+                    <div className="pt-1 flex justify-end">
+                      <Link
+                        to={`/nodes/${node.node_id}`}
+                        className="text-[11px] text-emerald-700 hover:underline font-mono font-bold"
+                      >
+                        Inspect Full Telemetry →
+                      </Link>
+                    </div>
                   </div>
-                </div>
-              </Popup>
-            </CircleMarker>
+                </Popup>
+              </CircleMarker>
+            </div>
           )
+
         })}
       </MapContainer>
     </div>

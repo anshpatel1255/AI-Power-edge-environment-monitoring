@@ -10,6 +10,7 @@ import Footer from './components/layout/Footer'
 import CommandPalette from './components/overlays/CommandPalette'
 import ScenarioDrawer from './components/overlays/ScenarioDrawer'
 import EmergencyModal from './components/overlays/EmergencyModal'
+import UsbSerialModal from './components/overlays/UsbSerialModal'
 
 // Pages
 import Dashboard from './pages/Dashboard'
@@ -24,6 +25,7 @@ import SettingsPage from './pages/SettingsPage'
 import NodeDetail from './pages/NodeDetail'
 import Login from './pages/Login'
 import LandingPage from './pages/LandingPage'
+import TelemetryPage from './pages/TelemetryPage'
 import { useAuthStore, useThemeStore } from './store/useStore'
 
 function AppLayout({ children }) {
@@ -84,6 +86,7 @@ function AppLayout({ children }) {
       <CommandPalette isOpen={cmdOpen} onClose={() => setCmdOpen(false)} />
       <ScenarioDrawer isOpen={scenarioOpen} onClose={() => setScenarioOpen(false)} />
       <EmergencyModal />
+      <UsbSerialModal />
     </div>
   )
 }
@@ -110,6 +113,7 @@ export default function App() {
           <Route path="/alerts" element={<AlertsPage />} />
           <Route path="/console" element={<CommandConsole />} />
           <Route path="/public" element={<PublicPortal />} />
+          <Route path="/telemetry" element={<TelemetryPage />} />
           <Route path="/fleet" element={<FleetPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/nodes/:id" element={<NodeDetail />} />
