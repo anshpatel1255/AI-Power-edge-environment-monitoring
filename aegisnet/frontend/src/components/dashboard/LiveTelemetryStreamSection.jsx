@@ -1,54 +1,75 @@
 // components/dashboard/LiveTelemetryStreamSection.jsx
-// Live Multi-Sensor Telemetry & Trend Matrix — Real-time dynamic stream showing live
-// Temperature, Flood/Water Level, Soil Moisture, CO Gas, Flame, PM2.5 AQI with live UP & DOWN trend deltas.
+// Live Sensor Trend Matrix — Six channels with live peak, low, rate of change,
+// smooth gradient wave charts, and real-time dynamic hardware integration.
 
 import { useState, useEffect, useRef } from 'react'
 import { useStore } from '../../store/useStore'
 import clsx from 'clsx'
 
-// Helper component for mini SVG sparkline
-function Sparkline({ points = [], color = '#059669' }) {
+// Helper component for smooth SVG Area Wave with fill gradient & glowing end dot
+function WaveChart({ points = [], color = '#2563EB', gradientId = 'waveGrad' }) {
   if (!points || points.length < 2) return null
   const min = Math.min(...points)
   const max = Math.max(...points)
   const range = (max - min) || 1
-  const width = 105
-  const height = 30
-  
-  const pathData = points.map((val, idx) => {
-    const x = (idx / (points.length - 1)) * width
-    const y = height - ((val - min) / range) * (height - 6) - 3
-    return `${idx === 0 ? 'M' : 'L'} ${x.toFixed(1)} ${y.toFixed(1)}`
-  }).join(' ')
+  const width = 160
+  const height = 46
 
-  const lastPoint = points[points.length - 1]
-  const lastY = height - ((lastPoint - min) / range) * (height - 6) - 3
+  // Generate SVG curve points
+  const coords = points.map((val, idx) => {
+    const x = (idx / (points.length - 1)) * width
+    const y = height - ((val - min) / range) * (height - 12) - 6
+    return { x, y }
+  })
+
+  // Build path with bezier smooth curves or polyline
+  let linePath = `M ${coords[0].x.toFixed(1)} ${coords[0].y.toFixed(1)}`
+  for (let i = 1; i < coords.length; i++) {
+    const prev = coords[i - 1]
+    const curr = coords[i]
+    const cpX = (prev.x + curr.x) / 2
+    linePath += ` C ${cpX.toFixed(1)} ${prev.y.toFixed(1)}, ${cpX.toFixed(1)} ${curr.y.toFixed(1)}, ${curr.x.toFixed(1)} ${curr.y.toFixed(1)}`
+  }
+
+  const areaPath = `${linePath} L ${width} ${height} L 0 ${height} Z`
+  const lastPoint = coords[coords.length - 1]
 
   return (
-    <svg width={width} height={height} className="overflow-visible">
-      <path
-        d={pathData}
-        fill="none"
-        stroke={color}
-        strokeWidth="2.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      {/* Little glow dot on latest point */}
-      <circle
-        cx={width}
-        cy={lastY}
-        r="3.5"
-        fill={color}
-      />
-      <circle
-        cx={width}
-        cy={lastY}
-        r="6"
-        fill={color}
-        className="animate-ping opacity-60"
-      />
-    </svg>
+    <div className="w-40 h-12 flex-shrink-0 overflow-visible relative">
+      <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full overflow-visible">
+        <defs>
+          <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={color} stopOpacity={0.35} />
+            <stop offset="100%" stopColor={color} stopOpacity={0.0} />
+          </linearGradient>
+        </defs>
+        {/* Shaded Area */}
+        <path d={areaPath} fill={`url(#${gradientId})`} />
+        {/* Crisp Wave Stroke */}
+        <path
+          d={linePath}
+          fill="none"
+          stroke={color}
+          strokeWidth="2.4"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        {/* Latest Reading Pulsing Glow Dot */}
+        <circle
+          cx={lastPoint.x}
+          cy={lastPoint.y}
+          r="3.5"
+          fill={color}
+        />
+        <circle
+          cx={lastPoint.x}
+          cy={lastPoint.y}
+          r="6.5"
+          fill={color}
+          className="animate-ping opacity-60"
+        />
+      </svg>
+    </div>
   )
 }
 
@@ -56,7 +77,6 @@ export default function LiveTelemetryStreamSection() {
   const esp32Nodes       = useStore((s) => s.esp32Nodes)
   const usbConnected     = useStore((s) => s.usbConnected)
   const usbPortName      = useStore((s) => s.usbPortName)
-  const usbPacketCount   = useStore((s) => s.usbPacketCount)
   const telemetryHistory = useStore((s) => s.telemetryHistory)
   const lastSyncTime     = useStore((s) => s.lastSyncTime)
   const surgeActive      = useStore((s) => s.surgeActive)
@@ -65,7 +85,7 @@ export default function LiveTelemetryStreamSection() {
   const setStreamActive  = useStore((s) => s.setStreamActive)
   const setModalOpen     = useStore((s) => s.setUsbModalOpen)
 
-  // Local flash/pulse effect on sync tick
+  // Local flash pulse on sync
   const [pulsing, setPulsing] = useState(false)
   const lastSyncRef = useRef(lastSyncTime)
 
@@ -78,405 +98,367 @@ export default function LiveTelemetryStreamSection() {
     }
   }, [lastSyncTime])
 
-  // Helper to compute live Upper Peak, Down Minimum, Delta and Direction
-  const computeStats = (series = []) => {
-    if (!series || series.length === 0) {
-      return { current: 0, upper: 0, down: 0, delta: 0, isUp: false, isDown: false, pctChange: '0.0' }
-    }
-    const minVal = Math.min(...series)
-    const maxVal = Math.max(...series)
-    const currentVal = series[series.length - 1]
-    const prevVal = series[series.length - 2] ?? currentVal
-    const delta = currentVal - prevVal
-    const isUp = delta > 0.001
-    const isDown = delta < -0.001
+  // Extract live hardware values if present from esp32Nodes
+  const floodHw = esp32Nodes.find((n) => n.node_id?.includes('FLOOD'))
+  const cotempHw = esp32Nodes.find((n) => n.node_id?.includes('COTEMP'))
+  const pollutionHw = esp32Nodes.find((n) => n.node_id?.includes('POLLUTION'))
+
+  // Calculate live statistical summaries (current, peak, low, change)
+  const computeStats = (series = [], defaultVal = 0, hwVal = null) => {
+    const list = series && series.length > 0 ? series : [defaultVal]
+    const current = hwVal != null ? hwVal : list[list.length - 1]
+    const minVal = Math.min(...list, current)
+    const maxVal = Math.max(...list, current)
+    const prevVal = list.length > 1 ? list[list.length - 2] : current
+    const delta = current - prevVal
+    const pct = prevVal !== 0 ? ((delta / prevVal) * 100) : 0
     return {
-      current: currentVal,
-      upper: maxVal,
-      down: minVal,
+      current,
+      peak: maxVal,
+      low: minVal,
       delta: parseFloat(delta.toFixed(2)),
-      isUp,
-      isDown,
-      pctChange: prevVal ? ((delta / prevVal) * 100).toFixed(1) : '0.0',
+      pct: (pct >= 0 ? '+' : '') + pct.toFixed(1) + '%',
+      isUp: delta > 0.001,
+      isDown: delta < -0.001,
     }
   }
 
-  const waterStats = computeStats(telemetryHistory?.water || [45])
-  const soilStats  = computeStats(telemetryHistory?.soil || [65])
-  const tempStats  = computeStats(telemetryHistory?.temp || [29.5])
-  const humStats   = computeStats(telemetryHistory?.hum || [58])
-  const coStats    = computeStats(telemetryHistory?.co || [2.5])
-  const aqiStats   = computeStats(telemetryHistory?.aqi || [52])
+  const water = computeStats(telemetryHistory?.water || [47.8, 46.5, 47.1, 46.8, 47.4, 47.8], 47.8, floodHw?.water_level_cm)
+  const temp  = computeStats(telemetryHistory?.temp  || [27.9, 28.1, 28.0, 27.8, 27.7, 27.7], 27.7, cotempHw?.temperature_c)
+  const hum   = computeStats(telemetryHistory?.hum   || [61.8, 62.0, 61.5, 61.9, 62.4, 62.2], 62.2, cotempHw?.humidity_pct)
+  const co    = computeStats(telemetryHistory?.co    || [1.18, 1.25, 1.30, 1.28, 1.21, 1.23], 1.23, cotempHw?.gas_ppm)
+  const aqi   = computeStats(telemetryHistory?.aqi   || [54, 56, 55, 58, 57, 59], 59, pollutionHw?.smoke_aqi)
+
+  const isFlameDetected = cotempHw?.flame_detected || surgeActive
 
   return (
-    <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-5 transition-all">
+    <div className="bg-white border border-slate-200/90 rounded-3xl p-6 sm:p-7 shadow-xs space-y-6 transition-all font-sans">
       
-      {/* ─── Header: Live Telemetry & Up/Down Stream Status ─────────────── */}
-      <div className="flex items-center justify-between flex-wrap gap-4 border-b border-slate-100 pb-4">
-        <div className="flex items-center gap-3">
-          <div className={clsx(
-            'w-10 h-10 rounded-2xl flex items-center justify-center text-xl transition-all shadow-xs',
-            pulsing ? 'bg-emerald-600 text-white scale-110' : 'bg-emerald-100 text-emerald-800'
-          )}>
-            📡
+      {/* ─── Header: Icon + Title + Action Pills ────────────────────────── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        
+        {/* Left: Icon & Title */}
+        <div className="flex items-center gap-3.5">
+          <div className="w-11 h-11 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center text-xl shadow-xs border border-blue-100/80 flex-shrink-0">
+            <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M2 12h4l3-9 4 18 3-9h6" />
+            </svg>
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-base font-extrabold text-slate-900 tracking-tight">
-                Live Sensor Telemetry & Trend Matrix
-              </h2>
-              <span className={clsx(
-                'text-[10px] font-mono font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1.5 transition-all',
-                usbConnected
-                  ? 'bg-emerald-500 text-white shadow-xs'
-                  : pulsing
-                  ? 'bg-emerald-200 text-emerald-900 border border-emerald-400'
-                  : 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-              )}>
-                <span className={clsx('w-2 h-2 rounded-full', usbConnected || pulsing ? 'bg-white animate-ping' : 'bg-emerald-500')} />
-                {usbConnected ? `COM7 LIVE SYNC (${usbPortName || 'USB'})` : 'DYNAMIC SAMPLING LIVE'}
-              </span>
-            </div>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Multi-channel real-time sensor stream with live Upper & Down tracking and delta rate-of-change
+            <h2 className="text-base sm:text-lg font-bold text-slate-900 tracking-tight leading-snug">
+              Live sensor trend matrix
+            </h2>
+            <p className="text-xs text-slate-500 mt-0.5 font-normal">
+              Six channels with live peak, low and rate of change.
             </p>
           </div>
         </div>
 
-        {/* Live Controls & Sync Time */}
+        {/* Right: Controls & Stream Status */}
         <div className="flex items-center gap-2.5 flex-wrap">
-          <div className="text-right hidden sm:block mr-1">
-            <div className="text-[10px] text-slate-400 font-mono">
-              {usbConnected ? `Packets RX: ${usbPacketCount}` : 'Continuous Stream (1.5s)'}
-            </div>
-            <div className="text-xs font-mono font-bold text-slate-800 flex items-center gap-1">
-              <span className={clsx('font-bold', pulsing ? 'text-emerald-500 scale-125' : 'text-emerald-600')}>●</span>
-              <span>Sync: {lastSyncTime}</span>
-            </div>
-          </div>
+          <span className="text-xs text-slate-500 font-medium mr-1">
+            Sampling every 1.5 s
+          </span>
 
-          {/* Simulate Surge Spike Button */}
+          {/* Simulate Surge Button */}
           <button
             type="button"
             onClick={toggleSurge}
             className={clsx(
-              'text-xs font-bold px-3 py-1.5 rounded-xl border transition-all cursor-pointer flex items-center gap-1',
+              'px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-all flex items-center gap-1.5 shadow-2xs cursor-pointer',
               surgeActive
-                ? 'bg-red-600 text-white border-red-700 shadow-sm animate-pulse'
-                : 'bg-slate-100 hover:bg-slate-200 text-slate-700 border-slate-300'
-            )}
-            title="Simulates rapid surge spikes to test real-time alarms"
-          >
-            <span>{surgeActive ? '🚨 Stop Surge' : '⚡ Simulate Surge'}</span>
-          </button>
-
-          {/* Pause / Resume Ticker */}
-          <button
-            type="button"
-            onClick={() => setStreamActive(!streamActive)}
-            className={clsx(
-              'text-xs font-bold px-3 py-1.5 rounded-xl border transition-colors cursor-pointer',
-              streamActive ? 'bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100' : 'bg-amber-100 text-amber-900 border-amber-300'
+                ? 'bg-red-500 text-white border-red-600 animate-pulse'
+                : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200 hover:border-slate-300'
             )}
           >
-            {streamActive ? '❚❚ Live Stream Active' : '▶ Resume Stream'}
+            <span className="text-blue-600 text-xs">⚡</span>
+            <span>Simulate surge</span>
           </button>
 
-          {/* USB Modal Button */}
+          {/* Live stream active badge */}
+          <span className="bg-emerald-50 text-emerald-700 border border-emerald-200/90 text-xs font-semibold px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-2xs">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block animate-pulse" />
+            <span>Live stream active</span>
+          </span>
+
+          {/* COM7 port badge */}
           <button
             type="button"
             onClick={() => setModalOpen(true)}
-            className="bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold px-3.5 py-1.5 rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
+            className="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-mono font-semibold px-3 py-1.5 rounded-full flex items-center gap-1.5 border border-slate-200/80 transition-colors cursor-pointer"
           >
-            <span>🔌</span>
-            <span>COM7 Port</span>
+            <span className="text-slate-500 font-bold">&gt;_</span>
+            <span>{usbPortName || 'COM7 port'}</span>
           </button>
         </div>
       </div>
 
-      {/* ─── 6-Card Real-Time Telemetry Matrix with Up & Down Indicators ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3.5">
+      {/* ─── 6 Channel Cards (2 Rows of 3 Columns) ───────────────────────── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
 
-        {/* 1. FLOOD / WATER LEVEL */}
-        <div className="bg-gradient-to-br from-blue-50/70 to-slate-50 border border-blue-200/80 rounded-2xl p-4 flex flex-col justify-between hover:shadow-md transition-all">
-          <div>
-            <div className="flex items-center justify-between text-xs">
-              <span className="font-bold text-blue-900 flex items-center gap-1">
-                <span>🌊</span> Water Depth
-              </span>
-              {/* Up/Down badge: Distance dropping means water rising! */}
-              <span className={clsx(
-                'font-mono text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-0.5 transition-colors',
-                waterStats.delta < 0
-                  ? 'bg-rose-100 text-rose-700'
-                  : waterStats.delta > 0
-                  ? 'bg-emerald-100 text-emerald-700'
-                  : 'bg-slate-100 text-slate-600'
-              )}>
-                {waterStats.delta < 0 ? '▲ Rising' : waterStats.delta > 0 ? '▼ Falling' : '— Steady'}
-              </span>
-            </div>
-
-            {/* Current Value */}
-            <div className="my-2.5 flex items-baseline justify-between">
-              <div className="text-2xl font-mono font-bold text-blue-950">
-                {waterStats.current.toFixed(1)} <span className="text-xs font-normal text-slate-500">cm</span>
+        {/* Card 1: Water depth */}
+        <div className="bg-slate-50/50 hover:bg-white border border-slate-200/80 rounded-2xl p-5 transition-all shadow-2xs hover:shadow-sm flex flex-col justify-between space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center text-sm border border-blue-100/80">
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                  <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" />
+                </svg>
               </div>
-              <Sparkline points={telemetryHistory?.water} color="#2563EB" />
+              <span className="text-xs font-bold text-slate-900">Water depth</span>
             </div>
+            <span className="bg-emerald-50 text-emerald-700 text-[10px] font-bold px-2.5 py-0.5 rounded-full border border-emerald-200/60">
+              Rising
+            </span>
           </div>
 
-          {/* Upper & Down Range Stats */}
-          <div className="pt-2 border-t border-blue-100/80 text-[10px] font-mono text-slate-500 space-y-1">
-            <div className="flex justify-between">
-              <span>▲ Upper Peak:</span>
-              <b className="text-slate-800">{waterStats.upper.toFixed(1)} cm</b>
+          <div className="flex items-baseline justify-between gap-2">
+            <div className="text-3xl font-extrabold text-slate-900 font-sans tracking-tight">
+              {water.current.toFixed(1)} <span className="text-xs font-semibold text-slate-500">cm</span>
             </div>
-            <div className="flex justify-between">
-              <span>▼ Down Low:</span>
-              <b className="text-slate-800">{waterStats.down.toFixed(1)} cm</b>
+            <WaveChart points={telemetryHistory?.water || [47.2, 47.8, 46.9, 47.3, 47.6, 47.8]} color="#2563EB" gradientId="waveWater" />
+          </div>
+
+          <div className="pt-3 border-t border-slate-200/60 grid grid-cols-3 text-[11px] text-slate-500">
+            <div>
+              <div className="text-[10px] text-slate-400">Peak</div>
+              <div className="font-bold text-slate-800 mt-0.5">{water.peak.toFixed(1)} cm</div>
             </div>
-            <div className="flex justify-between text-[9px] pt-0.5">
-              <span>Live Delta:</span>
-              <b className={waterStats.delta < 0 ? 'text-rose-600' : 'text-emerald-600'}>
-                {waterStats.delta > 0 ? `+${waterStats.delta}` : waterStats.delta} cm ({waterStats.pctChange}%)
-              </b>
+            <div>
+              <div className="text-[10px] text-slate-400">Low</div>
+              <div className="font-bold text-slate-800 mt-0.5">{water.low.toFixed(1)} cm</div>
+            </div>
+            <div>
+              <div className="text-[10px] text-slate-400">Change</div>
+              <div className="font-bold text-slate-800 mt-0.5">
+                {water.delta >= 0 ? `+${water.delta.toFixed(1)}` : water.delta.toFixed(1)} cm ({water.pct})
+              </div>
             </div>
           </div>
         </div>
 
-        {/* 2. AMBIENT TEMPERATURE */}
-        <div className="bg-gradient-to-br from-orange-50/70 to-slate-50 border border-orange-200/80 rounded-2xl p-4 flex flex-col justify-between hover:shadow-md transition-all">
-          <div>
-            <div className="flex items-center justify-between text-xs">
-              <span className="font-bold text-orange-900 flex items-center gap-1">
-                <span>🌡️</span> Temperature
-              </span>
-              {/* Up/Down badge */}
-              <span className={clsx(
-                'font-mono text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-0.5 transition-colors',
-                tempStats.isUp
-                  ? 'bg-rose-100 text-rose-700'
-                  : tempStats.isDown
-                  ? 'bg-blue-100 text-blue-700'
-                  : 'bg-slate-100 text-slate-600'
-              )}>
-                {tempStats.isUp ? '▲ Warming' : tempStats.isDown ? '▼ Cooling' : '— Stable'}
-              </span>
-            </div>
-
-            {/* Current Value */}
-            <div className="my-2.5 flex items-baseline justify-between">
-              <div className="text-2xl font-mono font-bold text-orange-950">
-                {tempStats.current.toFixed(1)} <span className="text-xs font-normal text-slate-500">°C</span>
+        {/* Card 2: Temperature */}
+        <div className="bg-slate-50/50 hover:bg-white border border-slate-200/80 rounded-2xl p-5 transition-all shadow-2xs hover:shadow-sm flex flex-col justify-between space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center text-sm border border-orange-100/80">
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                  <path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z" />
+                </svg>
               </div>
-              <Sparkline points={telemetryHistory?.temp} color="#EA580C" />
+              <span className="text-xs font-bold text-slate-900">Temperature</span>
             </div>
+            <span className="bg-slate-100 text-slate-600 text-[10px] font-bold px-2.5 py-0.5 rounded-full border border-slate-200/60">
+              Steady
+            </span>
           </div>
 
-          {/* Upper & Down Range Stats */}
-          <div className="pt-2 border-t border-orange-100/80 text-[10px] font-mono text-slate-500 space-y-1">
-            <div className="flex justify-between">
-              <span>▲ Upper High:</span>
-              <b className="text-slate-800">{tempStats.upper.toFixed(1)}°C</b>
+          <div className="flex items-baseline justify-between gap-2">
+            <div className="text-3xl font-extrabold text-slate-900 font-sans tracking-tight">
+              {temp.current.toFixed(1)} <span className="text-xs font-semibold text-slate-500">°C</span>
             </div>
-            <div className="flex justify-between">
-              <span>▼ Down Low:</span>
-              <b className="text-slate-800">{tempStats.down.toFixed(1)}°C</b>
+            <WaveChart points={telemetryHistory?.temp || [28.0, 28.2, 27.9, 28.1, 27.8, 27.7]} color="#F97316" gradientId="waveTemp" />
+          </div>
+
+          <div className="pt-3 border-t border-slate-200/60 grid grid-cols-3 text-[11px] text-slate-500">
+            <div>
+              <div className="text-[10px] text-slate-400">Peak</div>
+              <div className="font-bold text-slate-800 mt-0.5">{temp.peak.toFixed(1)} °C</div>
             </div>
-            <div className="flex justify-between text-[9px] pt-0.5">
-              <span>Live Delta:</span>
-              <b className={tempStats.isUp ? 'text-rose-600' : 'text-blue-600'}>
-                {tempStats.delta > 0 ? `+${tempStats.delta}` : tempStats.delta}°C ({tempStats.pctChange}%)
-              </b>
+            <div>
+              <div className="text-[10px] text-slate-400">Low</div>
+              <div className="font-bold text-slate-800 mt-0.5">{temp.low.toFixed(1)} °C</div>
+            </div>
+            <div>
+              <div className="text-[10px] text-slate-400">Change</div>
+              <div className="font-bold text-slate-800 mt-0.5">
+                {temp.delta >= 0 ? `+${temp.delta.toFixed(1)}` : temp.delta.toFixed(1)} °C ({temp.pct})
+              </div>
             </div>
           </div>
         </div>
 
-        {/* 3. RELATIVE HUMIDITY & SOIL */}
-        <div className="bg-gradient-to-br from-teal-50/70 to-slate-50 border border-teal-200/80 rounded-2xl p-4 flex flex-col justify-between hover:shadow-md transition-all">
-          <div>
-            <div className="flex items-center justify-between text-xs">
-              <span className="font-bold text-teal-900 flex items-center gap-1">
-                <span>💧</span> Humidity
-              </span>
-              <span className={clsx(
-                'font-mono text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-0.5 transition-colors',
-                humStats.isUp ? 'bg-teal-100 text-teal-800' : humStats.isDown ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-600'
-              )}>
-                {humStats.isUp ? '▲ Rising' : humStats.isDown ? '▼ Drying' : '— Flat'}
-              </span>
-            </div>
-
-            {/* Current Value */}
-            <div className="my-2.5 flex items-baseline justify-between">
-              <div className="text-2xl font-mono font-bold text-teal-950">
-                {humStats.current.toFixed(1)} <span className="text-xs font-normal text-slate-500">%</span>
+        {/* Card 3: Humidity */}
+        <div className="bg-slate-50/50 hover:bg-white border border-slate-200/80 rounded-2xl p-5 transition-all shadow-2xs hover:shadow-sm flex flex-col justify-between space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-xl bg-cyan-50 text-cyan-600 flex items-center justify-center text-sm border border-cyan-100/80">
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                  <path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z" />
+                </svg>
               </div>
-              <Sparkline points={telemetryHistory?.hum} color="#0D9488" />
+              <span className="text-xs font-bold text-slate-900">Humidity</span>
             </div>
+            <span className="bg-amber-50 text-amber-700 text-[10px] font-bold px-2.5 py-0.5 rounded-full border border-amber-200/60">
+              Rising
+            </span>
           </div>
 
-          {/* Upper & Down Range Stats */}
-          <div className="pt-2 border-t border-teal-100/80 text-[10px] font-mono text-slate-500 space-y-1">
-            <div className="flex justify-between">
-              <span>▲ Upper Peak:</span>
-              <b className="text-slate-800">{humStats.upper.toFixed(1)}%</b>
+          <div className="flex items-baseline justify-between gap-2">
+            <div className="text-3xl font-extrabold text-slate-900 font-sans tracking-tight">
+              {hum.current.toFixed(1)} <span className="text-xs font-semibold text-slate-500">%</span>
             </div>
-            <div className="flex justify-between">
-              <span>▼ Down Low:</span>
-              <b className="text-slate-800">{humStats.down.toFixed(1)}%</b>
+            <WaveChart points={telemetryHistory?.hum || [61.2, 61.8, 62.5, 62.0, 61.9, 62.2]} color="#06B6D4" gradientId="waveHum" />
+          </div>
+
+          <div className="pt-3 border-t border-slate-200/60 grid grid-cols-3 text-[11px] text-slate-500">
+            <div>
+              <div className="text-[10px] text-slate-400">Peak</div>
+              <div className="font-bold text-slate-800 mt-0.5">{hum.peak.toFixed(1)} %</div>
             </div>
-            <div className="flex justify-between text-[9px] pt-0.5">
-              <span>Soil Moisture:</span>
-              <b className="text-teal-700">{soilStats.current.toFixed(1)}% ({soilStats.isUp ? '▲ Wet' : '▼ Dry'})</b>
+            <div>
+              <div className="text-[10px] text-slate-400">Low</div>
+              <div className="font-bold text-slate-800 mt-0.5">{hum.low.toFixed(1)} %</div>
+            </div>
+            <div>
+              <div className="text-[10px] text-slate-400">Change</div>
+              <div className="font-bold text-slate-800 mt-0.5">
+                {hum.delta >= 0 ? `+${hum.delta.toFixed(1)}` : hum.delta.toFixed(1)} % ({hum.pct})
+              </div>
             </div>
           </div>
         </div>
 
-        {/* 4. CARBON MONOXIDE (MQ-7) */}
-        <div className="bg-gradient-to-br from-rose-50/70 to-slate-50 border border-rose-200/80 rounded-2xl p-4 flex flex-col justify-between hover:shadow-md transition-all">
-          <div>
-            <div className="flex items-center justify-between text-xs">
-              <span className="font-bold text-rose-900 flex items-center gap-1">
-                <span>☣️</span> CO Gas (MQ-7)
-              </span>
-              <span className={clsx(
-                'font-mono text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-0.5 transition-colors',
-                coStats.current > 6
-                  ? 'bg-rose-600 text-white animate-pulse'
-                  : coStats.isUp
-                  ? 'bg-rose-100 text-rose-800'
-                  : 'bg-emerald-100 text-emerald-800'
-              )}>
-                {coStats.current > 6 ? '▲ SPIKE' : coStats.isUp ? '▲ Rising' : '▼ Decaying'}
-              </span>
-            </div>
-
-            {/* Current Value */}
-            <div className="my-2.5 flex items-baseline justify-between">
-              <div className="text-2xl font-mono font-bold text-rose-950">
-                {coStats.current.toFixed(2)} <span className="text-xs font-normal text-slate-500">ppm</span>
+        {/* Card 4: CO gas (MQ-7) */}
+        <div className="bg-slate-50/50 hover:bg-white border border-slate-200/80 rounded-2xl p-5 transition-all shadow-2xs hover:shadow-sm flex flex-col justify-between space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center text-sm border border-rose-100/80">
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                  <path d="M10 2v7.31L4.35 19.46A2 2 0 0 0 6.09 22h11.82a2 2 0 0 0 1.74-2.54L14 9.31V2" />
+                  <path d="M8.5 2h7" />
+                </svg>
               </div>
-              <Sparkline points={telemetryHistory?.co} color="#E11D48" />
+              <span className="text-xs font-bold text-slate-900">CO gas (MQ-7)</span>
             </div>
+            <span className="bg-emerald-50 text-emerald-700 text-[10px] font-bold px-2.5 py-0.5 rounded-full border border-emerald-200/60">
+              Falling
+            </span>
           </div>
 
-          {/* Upper & Down Range Stats */}
-          <div className="pt-2 border-t border-rose-100/80 text-[10px] font-mono text-slate-500 space-y-1">
-            <div className="flex justify-between">
-              <span>▲ Upper Max:</span>
-              <b className={coStats.upper > 6 ? 'text-rose-600 font-bold' : 'text-slate-800'}>{coStats.upper.toFixed(2)} ppm</b>
+          <div className="flex items-baseline justify-between gap-2">
+            <div className="text-3xl font-extrabold text-slate-900 font-sans tracking-tight">
+              {co.current.toFixed(2)} <span className="text-xs font-semibold text-slate-500">ppm</span>
             </div>
-            <div className="flex justify-between">
-              <span>▼ Down Min:</span>
-              <b className="text-slate-800">{coStats.down.toFixed(2)} ppm</b>
+            <WaveChart points={telemetryHistory?.co || [1.45, 1.55, 1.35, 1.28, 1.19, 1.23]} color="#EF4444" gradientId="waveCO" />
+          </div>
+
+          <div className="pt-3 border-t border-slate-200/60 grid grid-cols-3 text-[11px] text-slate-500">
+            <div>
+              <div className="text-[10px] text-slate-400">Peak</div>
+              <div className="font-bold text-slate-800 mt-0.5">{co.peak.toFixed(2)} ppm</div>
             </div>
-            <div className="flex justify-between text-[9px] pt-0.5">
-              <span>Live Delta:</span>
-              <b className={coStats.delta > 0 ? 'text-rose-600' : 'text-emerald-600'}>
-                {coStats.delta > 0 ? `+${coStats.delta}` : coStats.delta} ppm
-              </b>
+            <div>
+              <div className="text-[10px] text-slate-400">Low</div>
+              <div className="font-bold text-slate-800 mt-0.5">{co.low.toFixed(2)} ppm</div>
+            </div>
+            <div>
+              <div className="text-[10px] text-slate-400">Change</div>
+              <div className="font-bold text-slate-800 mt-0.5">
+                {co.delta >= 0 ? `+${co.delta.toFixed(2)}` : co.delta.toFixed(2)} ppm ({co.pct})
+              </div>
             </div>
           </div>
         </div>
 
-        {/* 5. AIR QUALITY (PM2.5 AQI) */}
-        <div className="bg-gradient-to-br from-purple-50/70 to-slate-50 border border-purple-200/80 rounded-2xl p-4 flex flex-col justify-between hover:shadow-md transition-all">
-          <div>
-            <div className="flex items-center justify-between text-xs">
-              <span className="font-bold text-purple-900 flex items-center gap-1">
-                <span>🌫️</span> PM2.5 AQI
-              </span>
-              <span className={clsx(
-                'font-mono text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-0.5 transition-colors',
-                aqiStats.current > 90
-                  ? 'bg-purple-600 text-white animate-pulse'
-                  : aqiStats.isUp
-                  ? 'bg-purple-100 text-purple-800'
-                  : 'bg-emerald-100 text-emerald-800'
-              )}>
-                {aqiStats.current > 90 ? '▲ POOR' : aqiStats.isUp ? '▲ Rising' : '▼ Clearing'}
-              </span>
-            </div>
-
-            {/* Current Value */}
-            <div className="my-2.5 flex items-baseline justify-between">
-              <div className="text-2xl font-mono font-bold text-purple-950">
-                {aqiStats.current} <span className="text-xs font-normal text-slate-500">AQI</span>
+        {/* Card 5: PM2.5 AQI */}
+        <div className="bg-slate-50/50 hover:bg-white border border-slate-200/80 rounded-2xl p-5 transition-all shadow-2xs hover:shadow-sm flex flex-col justify-between space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center text-sm border border-purple-100/80">
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                  <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z" />
+                </svg>
               </div>
-              <Sparkline points={telemetryHistory?.aqi} color="#9333EA" />
+              <span className="text-xs font-bold text-slate-900">PM2.5 AQI</span>
             </div>
+            <span className="bg-amber-50 text-amber-700 text-[10px] font-bold px-2.5 py-0.5 rounded-full border border-amber-200/60">
+              Worsening
+            </span>
           </div>
 
-          {/* Upper & Down Range Stats */}
-          <div className="pt-2 border-t border-purple-100/80 text-[10px] font-mono text-slate-500 space-y-1">
-            <div className="flex justify-between">
-              <span>▲ Upper Peak:</span>
-              <b className="text-slate-800">{aqiStats.upper} AQI</b>
+          <div className="flex items-baseline justify-between gap-2">
+            <div className="text-3xl font-extrabold text-slate-900 font-sans tracking-tight">
+              {Math.round(aqi.current)} <span className="text-xs font-semibold text-slate-500">AQI</span>
             </div>
-            <div className="flex justify-between">
-              <span>▼ Down Low:</span>
-              <b className="text-slate-800">{aqiStats.down} AQI</b>
+            <WaveChart points={telemetryHistory?.aqi || [53, 56, 54, 58, 56, 59]} color="#8B5CF6" gradientId="waveAQI" />
+          </div>
+
+          <div className="pt-3 border-t border-slate-200/60 grid grid-cols-3 text-[11px] text-slate-500">
+            <div>
+              <div className="text-[10px] text-slate-400">Peak</div>
+              <div className="font-bold text-slate-800 mt-0.5">{Math.round(aqi.peak)}</div>
             </div>
-            <div className="flex justify-between text-[9px] pt-0.5">
-              <span>Live Delta:</span>
-              <b className={aqiStats.delta > 0 ? 'text-purple-600' : 'text-emerald-600'}>
-                {aqiStats.delta > 0 ? `+${aqiStats.delta}` : aqiStats.delta} AQI
-              </b>
+            <div>
+              <div className="text-[10px] text-slate-400">Low</div>
+              <div className="font-bold text-slate-800 mt-0.5">{Math.round(aqi.low)}</div>
+            </div>
+            <div>
+              <div className="text-[10px] text-slate-400">Change</div>
+              <div className="font-bold text-slate-800 mt-0.5">
+                {aqi.delta >= 0 ? `+${Math.round(aqi.delta)}` : Math.round(aqi.delta)} ({aqi.pct})
+              </div>
             </div>
           </div>
         </div>
 
-        {/* 6. OPTICAL FLAME & SIREN TRIGGER */}
-        <div className={clsx(
-          'border rounded-2xl p-4 flex flex-col justify-between hover:shadow-md transition-all',
-          surgeActive
-            ? 'bg-red-50 border-red-400 animate-pulse'
-            : 'bg-gradient-to-br from-emerald-50/70 to-slate-50 border-emerald-200/80'
-        )}>
-          <div>
-            <div className="flex items-center justify-between text-xs">
-              <span className="font-bold text-slate-900 flex items-center gap-1">
-                <span>🔥</span> Flame Sensor
-              </span>
-              <span className={clsx(
-                'font-mono text-[10px] font-bold px-2 py-0.5 rounded-full transition-colors',
-                surgeActive ? 'bg-red-600 text-white animate-bounce' : 'bg-emerald-100 text-emerald-800'
-              )}>
-                {surgeActive ? '🚨 FLAME ACTIVE' : '✓ CLEAR'}
-              </span>
+        {/* Card 6: Flame sensor */}
+        <div className="bg-slate-50/50 hover:bg-white border border-slate-200/80 rounded-2xl p-5 transition-all shadow-2xs hover:shadow-sm flex flex-col justify-between space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-7 h-7 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center text-sm border border-orange-100/80">
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
+                  <path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z" />
+                </svg>
+              </div>
+              <span className="text-xs font-bold text-slate-900">Flame sensor</span>
             </div>
+            <span className={clsx(
+              'text-[10px] font-bold px-2.5 py-0.5 rounded-full border',
+              isFlameDetected
+                ? 'bg-red-500 text-white border-red-600 animate-pulse'
+                : 'bg-emerald-50 text-emerald-700 border-emerald-200/60'
+            )}>
+              {isFlameDetected ? 'Active' : 'Clear'}
+            </span>
+          </div>
 
-            {/* Current Value */}
-            <div className="my-2.5">
+          <div className="flex items-center gap-3 py-1">
+            <div className={clsx(
+              'w-10 h-10 rounded-full flex items-center justify-center text-lg shadow-2xs',
+              isFlameDetected ? 'bg-red-100 text-red-600 animate-bounce' : 'bg-emerald-100 text-emerald-600'
+            )}>
+              {isFlameDetected ? '🔥' : '✓'}
+            </div>
+            <div>
               <div className={clsx(
-                'text-lg font-mono font-bold leading-tight',
-                surgeActive ? 'text-red-700' : 'text-emerald-700'
+                'text-lg font-extrabold tracking-tight',
+                isFlameDetected ? 'text-red-600' : 'text-slate-900'
               )}>
-                {surgeActive ? 'FIRE DETECTED' : 'Zero Optical Flame'}
+                {isFlameDetected ? 'Flame Detected' : 'Clear'}
               </div>
-              <div className="text-[10px] text-slate-500 mt-1">
-                {surgeActive ? 'Active IR emission in sector' : 'Normal ambient spectrum'}
+              <div className="text-[10px] text-slate-400">
+                {isFlameDetected ? 'High IR pulse triggered in sector' : 'Normal ambient spectrum'}
               </div>
             </div>
           </div>
 
-          {/* Upper & Down Range Stats */}
-          <div className="pt-2 border-t border-slate-200/60 text-[10px] font-mono text-slate-500 space-y-1">
-            <div className="flex justify-between">
-              <span>Edge SLA:</span>
-              <b className="text-slate-800">&lt;100ms Optical</b>
+          <div className="pt-3 border-t border-slate-200/60 grid grid-cols-3 text-[11px] text-slate-500">
+            <div>
+              <div className="text-[10px] text-slate-400">Edge SLA</div>
+              <div className="font-bold text-slate-800 mt-0.5">Under 100 ms</div>
             </div>
-            <div className="flex justify-between">
-              <span>Autonomous Siren:</span>
-              <b className={surgeActive ? 'text-red-600' : 'text-emerald-700'}>
-                {surgeActive ? 'ENGAGED' : 'Standby'}
-              </b>
+            <div>
+              <div className="text-[10px] text-slate-400">Siren</div>
+              <div className={clsx('font-bold mt-0.5', isFlameDetected ? 'text-red-600 animate-pulse' : 'text-slate-800')}>
+                {isFlameDetected ? 'Siren Active' : 'Standby'}
+              </div>
             </div>
-            <div className="flex justify-between text-[9px] pt-0.5">
-              <span>Port COM7:</span>
-              <b className="text-slate-700">{usbConnected ? 'USB Active' : 'Ready'}</b>
+            <div>
+              <div className="text-[10px] text-slate-400">Port COM7</div>
+              <div className="font-bold text-slate-800 mt-0.5">
+                {usbConnected ? 'Active' : 'Ready'}
+              </div>
             </div>
           </div>
         </div>

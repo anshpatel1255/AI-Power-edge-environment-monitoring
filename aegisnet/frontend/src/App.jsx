@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import clsx from 'clsx'
 
-// Layout Components
+import ErrorBoundary from './components/common/ErrorBoundary'
 import TopHeader from './components/layout/TopHeader'
 import Footer from './components/layout/Footer'
 
@@ -95,37 +95,39 @@ export default function App() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
 
   return (
-    <BrowserRouter>
-      <AppLayout>
-        <Routes>
-          {/* Direct Landing Page — opened on root when not logged in */}
-          <Route
-            path="/"
-            element={
-              isAuthenticated ? <Navigate to="/dashboard" replace /> : <LandingPage />
-            }
-          />
-          <Route path="/landing" element={<LandingPage />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/map" element={<MapPage />} />
-          <Route path="/history" element={<HistoryPage />} />
-          <Route path="/analysis" element={<AnalysisPage />} />
-          <Route path="/alerts" element={<AlertsPage />} />
-          <Route path="/console" element={<CommandConsole />} />
-          <Route path="/public" element={<PublicPortal />} />
-          <Route path="/telemetry" element={<TelemetryPage />} />
-          <Route path="/fleet" element={<FleetPage />} />
-          <Route path="/settings" element={<SettingsPage />} />
-          <Route path="/nodes/:id" element={<NodeDetail />} />
-          <Route path="/login" element={<Login />} />
-          <Route
-            path="*"
-            element={
-              <Navigate to={isAuthenticated ? "/dashboard" : "/"} replace />
-            }
-          />
-        </Routes>
-      </AppLayout>
-    </BrowserRouter>
+    <ErrorBoundary>
+      <BrowserRouter>
+        <AppLayout>
+          <Routes>
+            {/* Direct Landing Page — opened on root when not logged in */}
+            <Route
+              path="/"
+              element={
+                isAuthenticated ? <Navigate to="/dashboard" replace /> : <LandingPage />
+              }
+            />
+            <Route path="/landing" element={<LandingPage />} />
+            <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/map" element={<MapPage />} />
+            <Route path="/history" element={<HistoryPage />} />
+            <Route path="/analysis" element={<AnalysisPage />} />
+            <Route path="/alerts" element={<AlertsPage />} />
+            <Route path="/console" element={<CommandConsole />} />
+            <Route path="/public" element={<PublicPortal />} />
+            <Route path="/telemetry" element={<TelemetryPage />} />
+            <Route path="/fleet" element={<FleetPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/nodes/:id" element={<NodeDetail />} />
+            <Route path="/login" element={<Login />} />
+            <Route
+              path="*"
+              element={
+                <Navigate to={isAuthenticated ? "/dashboard" : "/"} replace />
+              }
+            />
+          </Routes>
+        </AppLayout>
+      </BrowserRouter>
+    </ErrorBoundary>
   )
 }
