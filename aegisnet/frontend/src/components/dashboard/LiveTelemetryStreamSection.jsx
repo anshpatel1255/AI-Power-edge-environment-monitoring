@@ -107,29 +107,31 @@ export default function LiveTelemetryStreamSection() {
 
   // Calculate live statistical summaries (current, peak, low, change)
   const computeStats = (series = [], defaultVal = 0, hwVal = null) => {
-    const list = series && series.length > 0 ? series : [defaultVal]
-    const current = hwVal != null ? hwVal : list[list.length - 1]
-    const minVal = Math.min(...list, current)
-    const maxVal = Math.max(...list, current)
+    const activeSeries = series && series.length > 0 ? series : (hwVal != null ? [hwVal] : [])
+    const current = hwVal != null ? hwVal : (activeSeries.length > 0 ? activeSeries[activeSeries.length - 1] : defaultVal)
+    const list = activeSeries.length > 0 ? activeSeries : (current != null ? [current] : [])
+    const minVal = list.length > 0 ? Math.min(...list) : 0
+    const maxVal = list.length > 0 ? Math.max(...list) : 0
     const prevVal = list.length > 1 ? list[list.length - 2] : current
-    const delta = current - prevVal
-    const pct = prevVal !== 0 ? ((delta / prevVal) * 100) : 0
+    const delta = (current != null && prevVal != null) ? (current - prevVal) : 0
+    const pct = prevVal && prevVal !== 0 ? ((delta / prevVal) * 100) : 0
     return {
-      current,
+      current: current ?? 0,
       peak: maxVal,
       low: minVal,
       delta: parseFloat(delta.toFixed(2)),
       pct: (pct >= 0 ? '+' : '') + pct.toFixed(1) + '%',
       isUp: delta > 0.001,
       isDown: delta < -0.001,
+      points: list.length > 1 ? list : (list.length === 1 ? [list[0], list[0]] : []),
     }
   }
 
-  const water = computeStats(telemetryHistory?.water || [47.8, 46.5, 47.1, 46.8, 47.4, 47.8], 47.8, floodHw?.water_level_cm)
-  const temp  = computeStats(telemetryHistory?.temp  || [27.9, 28.1, 28.0, 27.8, 27.7, 27.7], 27.7, cotempHw?.temperature_c)
-  const hum   = computeStats(telemetryHistory?.hum   || [61.8, 62.0, 61.5, 61.9, 62.4, 62.2], 62.2, cotempHw?.humidity_pct)
-  const co    = computeStats(telemetryHistory?.co    || [1.18, 1.25, 1.30, 1.28, 1.21, 1.23], 1.23, cotempHw?.gas_ppm)
-  const aqi   = computeStats(telemetryHistory?.aqi   || [54, 56, 55, 58, 57, 59], 59, pollutionHw?.smoke_aqi)
+  const water = computeStats(telemetryHistory?.water, 0, floodHw?.water_level_cm)
+  const temp  = computeStats(telemetryHistory?.temp,  0, cotempHw?.temperature_c)
+  const hum   = computeStats(telemetryHistory?.hum,   0, cotempHw?.humidity_pct)
+  const co    = computeStats(telemetryHistory?.co,    0, cotempHw?.gas_ppm)
+  const aqi   = computeStats(telemetryHistory?.aqi,   0, pollutionHw?.smoke_aqi)
 
   const isFlameDetected = cotempHw?.flame_detected || surgeActive
 
@@ -225,7 +227,7 @@ export default function LiveTelemetryStreamSection() {
             <div className="text-3xl font-extrabold text-slate-900 font-sans tracking-tight">
               {water.current.toFixed(1)} <span className="text-xs font-semibold text-slate-500">cm</span>
             </div>
-            <WaveChart points={telemetryHistory?.water || [47.2, 47.8, 46.9, 47.3, 47.6, 47.8]} color="#2563EB" gradientId="waveWater" />
+            <WaveChart points={water.points} color="#2563EB" gradientId="waveWater" />
           </div>
 
           <div className="pt-3 border-t border-slate-200/60 grid grid-cols-3 text-[11px] text-slate-500">
@@ -266,7 +268,7 @@ export default function LiveTelemetryStreamSection() {
             <div className="text-3xl font-extrabold text-slate-900 font-sans tracking-tight">
               {temp.current.toFixed(1)} <span className="text-xs font-semibold text-slate-500">°C</span>
             </div>
-            <WaveChart points={telemetryHistory?.temp || [28.0, 28.2, 27.9, 28.1, 27.8, 27.7]} color="#F97316" gradientId="waveTemp" />
+            <WaveChart points={temp.points} color="#F97316" gradientId="waveTemp" />
           </div>
 
           <div className="pt-3 border-t border-slate-200/60 grid grid-cols-3 text-[11px] text-slate-500">
@@ -307,7 +309,7 @@ export default function LiveTelemetryStreamSection() {
             <div className="text-3xl font-extrabold text-slate-900 font-sans tracking-tight">
               {hum.current.toFixed(1)} <span className="text-xs font-semibold text-slate-500">%</span>
             </div>
-            <WaveChart points={telemetryHistory?.hum || [61.2, 61.8, 62.5, 62.0, 61.9, 62.2]} color="#06B6D4" gradientId="waveHum" />
+            <WaveChart points={hum.points} color="#06B6D4" gradientId="waveHum" />
           </div>
 
           <div className="pt-3 border-t border-slate-200/60 grid grid-cols-3 text-[11px] text-slate-500">
@@ -349,7 +351,7 @@ export default function LiveTelemetryStreamSection() {
             <div className="text-3xl font-extrabold text-slate-900 font-sans tracking-tight">
               {co.current.toFixed(2)} <span className="text-xs font-semibold text-slate-500">ppm</span>
             </div>
-            <WaveChart points={telemetryHistory?.co || [1.45, 1.55, 1.35, 1.28, 1.19, 1.23]} color="#EF4444" gradientId="waveCO" />
+            <WaveChart points={co.points} color="#EF4444" gradientId="waveCO" />
           </div>
 
           <div className="pt-3 border-t border-slate-200/60 grid grid-cols-3 text-[11px] text-slate-500">
@@ -390,7 +392,7 @@ export default function LiveTelemetryStreamSection() {
             <div className="text-3xl font-extrabold text-slate-900 font-sans tracking-tight">
               {Math.round(aqi.current)} <span className="text-xs font-semibold text-slate-500">AQI</span>
             </div>
-            <WaveChart points={telemetryHistory?.aqi || [53, 56, 54, 58, 56, 59]} color="#8B5CF6" gradientId="waveAQI" />
+            <WaveChart points={aqi.points} color="#8B5CF6" gradientId="waveAQI" />
           </div>
 
           <div className="pt-3 border-t border-slate-200/60 grid grid-cols-3 text-[11px] text-slate-500">
