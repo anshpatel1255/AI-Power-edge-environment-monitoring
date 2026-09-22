@@ -4,15 +4,18 @@
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { Link } from 'react-router-dom'
+import { io } from 'socket.io-client'
 import { useStore } from '../store/useStore'
 import { webSerialService } from '../services/webSerialService'
 import './TelemetryPage.css'
+
+const BACKEND_URL = 'http://localhost:4000'
 
 // ─── Helpers & Formatting ───────────────────────────────────────────────────
 const clamp = (v, a, b) => Math.min(b, Math.max(a, v))
 const fmt = (v, d) => Number(v).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d })
 const RANK = { ok: 0, warn: 1, poor: 2, bad: 3 }
-const STATE_LBL = { ok: 'Normal', warn: 'Watch', poor: 'Warning', bad: 'Alert' }
+const STATE_LBL = { ok: 'Normal', warn: 'Watch', poor: 'Warning', bad: 'Alert', off: 'Offline' }
 const SEV = { bad: 'Critical', poor: 'Warning', warn: 'Watch' }
 const SPAN = { '1h': 36e5, '6h': 216e5, '24h': 864e5, '7d': 6048e5 }
 const TONE_ON_BLUE = { ok: '#86efac', warn: '#fde68a', poor: '#fdba74', bad: '#fda4af' }
@@ -108,8 +111,8 @@ const STATIONS_DEF = [
     metrics: [
       {
         id: 'co',
-        label: 'CO gas (MQ-7)',
-        param: 'CO Gas (MQ-7)',
+        label: 'CO gas (ZE07-CO)',
+        param: 'CO Gas (ZE07-CO)',
         unit: 'ppm',
         dec: 2,
         base: 2.71,
@@ -337,20 +340,24 @@ function rng(a) {
 }
 
 function buildWin(mDef, w, currentVal) {
+  // If there is no real current reading, return empty — never show fake data
+  if (currentVal == null || isNaN(currentVal)) return []
   const N = 48
   const span = SPAN[w] || 36e5
   const now = Date.now()
   const dt = span / (N - 1)
   const r = rng(hash(mDef.id + w))
-  const amp = (mDef.noise || 0.5) * 5
+  // Use real current value as the anchor; simulate only small ±noise around it
+  const amp = Math.min((mDef.noise || 0.5) * 2, (mDef.max - mDef.min) * 0.04)
   const ph = r() * 6.283
   const cyc = { '1h': 1.5, '6h': 2, '24h': 2.5, '7d': 4 }[w] || 2
   const out = []
   for (let i = 0; i < N; i++) {
-    let v = mDef.kind === 'binary' ? 0 : mDef.base + amp * Math.sin(ph + i / (N - 1) * cyc * 6.283) * 0.7 + (r() - 0.5) * amp * 0.9
+    let v = mDef.kind === 'binary' ? 0 : currentVal + amp * Math.sin(ph + i / (N - 1) * cyc * 6.283) * 0.7 + (r() - 0.5) * amp * 0.9
     out.push({ t: now - span + i * dt, v: clamp(v, mDef.min, mDef.max) })
   }
-  if (mDef.kind !== 'binary' && currentVal != null) {
+  // Last point always equals real current value
+  if (mDef.kind !== 'binary') {
     out[N - 1].v = currentVal
   }
   return out
@@ -382,7 +389,12 @@ function SvgChart({ def, stationId, chartIndex, win, liveData, metricValues, met
       const curVal = metricValues[s.m]
       let data = []
       if (win === 'live') {
-        data = liveData[s.m] || []
+        const rawPts = liveData[s.m] || []
+        if (rawPts.length === 1) {
+          data = [{ t: rawPts[0].t - 2000, v: rawPts[0].v }, rawPts[0]]
+        } else {
+          data = rawPts
+        }
       } else {
         data = buildWin(mDef, win, curVal)
       }
@@ -396,7 +408,7 @@ function SvgChart({ def, stationId, chartIndex, win, liveData, metricValues, met
   }, [def.series, metricsDefMap, metricValues, win, liveData])
 
   const H = 210
-  const n = seriesInfo[0]?.data?.length || 0
+  const maxN = Math.max(...seriesInfo.map((s) => s.data.length), 0)
   const hasR = seriesInfo.some((s) => s.axis === 'r')
   const padL = 42
   const padR = hasR ? 42 : 14
@@ -436,21 +448,23 @@ function SvgChart({ def, stationId, chartIndex, win, liveData, metricValues, met
     }
   }, [def, seriesInfo, hasR])
 
-  const X = useCallback((i) => padL + (i * pw) / Math.max(1, n - 1), [padL, pw, n])
+  const X = useCallback((i) => padL + (i * pw) / Math.max(1, maxN - 1), [padL, pw, maxN])
   const Y = useCallback((v, a) => {
     const sc = scales[a] || scales.l
     return padT + ph - ((v - sc.lo) / Math.max(0.0001, sc.hi - sc.lo)) * ph
   }, [scales, padT, ph])
 
   const handlePointerMove = (e) => {
-    if (!containerRef.current || n < 2) return
+    if (!containerRef.current || maxN < 2) return
     const rect = containerRef.current.getBoundingClientRect()
     const px = e.clientX - rect.left
-    const idx = clamp(Math.round(((px - padL) / pw) * (n - 1)), 0, n - 1)
-    const exactX = X(idx)
+    const idx = clamp(Math.round(((px - padL) / pw) * (maxN - 1)), 0, maxN - 1)
+    const exactX = padL + (idx * pw) / Math.max(1, maxN - 1)
 
     const items = seriesInfo.map((s) => {
-      const pt = s.data[idx]
+      const sLen = s.data.length
+      const sIdx = sLen > 0 ? clamp(Math.round(((px - padL) / pw) * (sLen - 1)), 0, sLen - 1) : 0
+      const pt = s.data[sIdx]
       const val = pt ? pt.v : 0
       const formatted = s.mDef.kind === 'binary'
         ? (val ? 'Detected' : 'Clear')
@@ -463,7 +477,7 @@ function SvgChart({ def, stationId, chartIndex, win, liveData, metricValues, met
       }
     })
 
-    const timeStr = tlabel(seriesInfo[0].data[idx]?.t || Date.now(), true, win)
+    const timeStr = tlabel(seriesInfo[0]?.data[idx]?.t || Date.now(), true, win)
     const tipLeft = exactX + 14 + 180 > width ? exactX - 14 - 180 : exactX + 14
 
     setHoverData({
@@ -480,9 +494,13 @@ function SvgChart({ def, stationId, chartIndex, win, liveData, metricValues, met
 
   // Generate curves
   const curves = useMemo(() => {
-    if (n < 2) return []
     return seriesInfo.map((s, sIdx) => {
-      const pts = s.data.map((p, j) => [X(j), Y(p.v, s.axis)])
+      const sn = s.data.length
+      if (sn < 2) return null
+      const pts = s.data.map((p, j) => [
+        padL + (j * pw) / Math.max(1, sn - 1),
+        Y(p.v, s.axis)
+      ])
       let d = `M ${pts[0][0].toFixed(1)},${pts[0][1].toFixed(1)}`
       for (let j = 1; j < pts.length; j++) {
         const [x0, y0] = pts[j - 1]
@@ -490,8 +508,8 @@ function SvgChart({ def, stationId, chartIndex, win, liveData, metricValues, met
         const mx = ((x0 + x1) / 2).toFixed(1)
         d += ` C ${mx},${y0.toFixed(1)} ${mx},${y1.toFixed(1)} ${x1.toFixed(1)},${y1.toFixed(1)}`
       }
-      const areaD = `${d} L ${pts[n - 1][0].toFixed(1)},${padT + ph} L ${pts[0][0].toFixed(1)},${padT + ph} Z`
-      const lastPt = pts[n - 1]
+      const areaD = `${d} L ${pts[sn - 1][0].toFixed(1)},${padT + ph} L ${pts[0][0].toFixed(1)},${padT + ph} Z`
+      const lastPt = pts[sn - 1]
       return {
         lineD: d,
         areaD,
@@ -500,14 +518,14 @@ function SvgChart({ def, stationId, chartIndex, win, liveData, metricValues, met
         hasArea: seriesInfo.length === 1 && !def.noArea,
         gradId: `cg-${stationId}-${chartIndex}-${sIdx}`
       }
-    })
-  }, [seriesInfo, n, X, Y, padT, ph, def.noArea, stationId, chartIndex])
+    }).filter(Boolean)
+  }, [seriesInfo, Y, padL, pw, padT, ph, def.noArea, stationId, chartIndex])
 
   // X ticks
   const xIndices = useMemo(() => {
-    if (n < 2) return []
-    return [...new Set([0, 0.25, 0.5, 0.75, 1].map((f) => Math.round(f * (n - 1))))]
-  }, [n])
+    if (maxN < 2) return []
+    return [...new Set([0, 0.25, 0.5, 0.75, 1].map((f) => Math.round(f * (maxN - 1))))]
+  }, [maxN])
 
   return (
     <div className="chart">
@@ -592,6 +610,16 @@ function SvgChart({ def, stationId, chartIndex, win, liveData, metricValues, met
             )
           })}
 
+          {/* Awaiting Hardware Telemetry Placeholder */}
+          {(curves.length === 0 || curves.every((c) => !c.lineD || c.lineD.trim() === '')) && (
+            <g>
+              <rect x={padL} y={padT} width={pw} height={ph} fill="#f8fafc" opacity="0.7" rx="6" />
+              <text x={padL + pw / 2} y={padT + ph / 2} textAnchor="middle" fill="#94a3b8" fontSize="12" fontWeight="600">
+                Awaiting physical sensor telemetry from ESP32...
+              </text>
+            </g>
+          )}
+
           {/* Data Curves & Fills */}
           {curves.map((c, cIdx) => (
             <g key={`curve-${cIdx}`}>
@@ -651,6 +679,10 @@ function SvgChart({ def, stationId, chartIndex, win, liveData, metricValues, met
 export default function TelemetryPage() {
   const esp32Nodes      = useStore((s) => s.esp32Nodes)
   const usbConnected    = useStore((s) => s.usbConnected)
+  const usbPortName     = useStore((s) => s.usbPortName)
+  const usbPacketCount  = useStore((s) => s.usbPacketCount)
+  const usbPacketsPerSec = useStore((s) => s.usbPacketsPerSec)
+  const usbBaudRate     = useStore((s) => s.usbBaudRate)
   const setUsbModalOpen = useStore((s) => s.setUsbModalOpen)
   const selectedRegion  = useStore((s) => s.selectedRegion || 'All Gujarat Grid')
   const lastPhysicalPacketTime = useStore((s) => s.lastPhysicalPacketTime)
@@ -666,6 +698,110 @@ export default function TelemetryPage() {
     toastTimeoutRef.current = setTimeout(() => setToastMsg(''), 2800)
   }, [])
 
+  const [connectingHw, setConnectingHw] = useState(false)
+  const [selectedBaud, setSelectedBaud] = useState(usbBaudRate || 115200)
+
+  // Helper to extract initial values from store nodes
+  const getInitialMetrics = useCallback(() => {
+    const init = {}
+    const store = useStore.getState()
+    const flood = store.esp32Nodes?.find((n) => (n.node_id?.includes('FLOOD') || n.category === 'flood') && n.is_live_hw)
+    const cotemp = store.esp32Nodes?.find((n) => (n.node_id?.includes('COTEMP') || n.category === 'fire') && n.is_live_hw)
+    const pollution = store.esp32Nodes?.find((n) => (n.node_id?.includes('POLLUTION') || n.category === 'air') && n.is_live_hw)
+
+    if (flood) {
+      if (flood.water_level_cm != null) init.water = flood.water_level_cm
+      if (flood.soil_moisture != null) init.soil = flood.soil_moisture
+    }
+    if (cotemp) {
+      if (cotemp.gas_ppm != null) init.co = cotemp.gas_ppm
+      if (cotemp.temperature_c != null) init.temp = cotemp.temperature_c
+      if (cotemp.humidity_pct != null) init.hum = cotemp.humidity_pct
+      if (cotemp.flame_detected !== undefined) init.flame = cotemp.flame_detected ? 1 : 0
+    }
+    if (pollution) {
+      if (pollution.smoke_aqi != null) init.pm25 = pollution.smoke_aqi
+      if (pollution.pm10 != null) init.pm10 = pollution.pm10
+      if (pollution.mq135_strength != null) init.mq135 = pollution.mq135_strength
+      if (pollution.mq4_strength != null) init.mq4 = pollution.mq4_strength
+      if (pollution.pm1 != null) init.pm1 = pollution.pm1
+      if (pollution.optical_density != null) init.od = pollution.optical_density
+    }
+    return init
+  }, [])
+
+  // Track master ESP32 gateway connectivity and node liveness
+  const [masterOnline, setMasterOnline] = useState(false)
+  const [nodeOnlineStatus, setNodeOnlineStatus] = useState({ FLOOD: false, CO_TEMP: false, POLLUTION: false })
+  const [masterLastSeen, setMasterLastSeen] = useState(null)
+
+  // Track timestamps when physical hardware data was received per metric ID
+  const [sensorLastSeen, setSensorLastSeen] = useState({})
+
+  // Determine whether a sensor is actively streaming real data
+  // Strictly based on Master Gateway ONLINE AND real packet arrival within the last 30 seconds!
+  const isSensorLive = useCallback((metricId) => {
+    if (isSimulating) return true
+    if (!masterOnline) return false
+    const lastT = sensorLastSeen[metricId]
+    if (!lastT) return false
+    return (Date.now() - lastT) < 30000 // consider live only if updated within 30s
+  }, [isSimulating, masterOnline, sensorLastSeen])
+
+  // Determine whether a station has any active physical sensors
+  const isStationLive = useCallback((station) => {
+    if (isSimulating) return true
+    if (!masterOnline) return false
+    if (!station || !station.metrics) return false
+    const nodeKey = station.node === 'ESP32-FLOOD' ? 'FLOOD' : (station.node === 'ESP32-COTEMP' ? 'CO_TEMP' : 'POLLUTION')
+    if (nodeOnlineStatus[nodeKey] === false) return false
+    return station.metrics.some((m) => isSensorLive(m.id))
+  }, [isSimulating, masterOnline, nodeOnlineStatus, isSensorLive])
+
+  const handleConnectUsb = async (baud = selectedBaud) => {
+    setConnectingHw(true)
+    try {
+      await webSerialService.connect(baud)
+      showToast(`✓ ESP32 connected at ${baud} baud! Streaming live telemetry.`)
+      // Refresh local metrics and timestamps
+      const initVals = getInitialMetrics()
+      setMetricValues((prev) => ({ ...prev, ...initVals }))
+      const now = Date.now()
+      setSensorLastSeen((prev) => {
+        const next = { ...prev }
+        Object.keys(initVals).forEach((k) => { next[k] = now })
+        return next
+      })
+    } catch (err) {
+      if (err.name === 'NotFoundError') {
+        showToast('Port selection cancelled.')
+      } else {
+        showToast(`Connection failed: ${err.message}`)
+      }
+    } finally {
+      setConnectingHw(false)
+    }
+  }
+
+  const handleSwitchBaud = async (baud) => {
+    setSelectedBaud(baud)
+    try {
+      await webSerialService.switchBaudRate(baud)
+      showToast(`✓ Reconfigured to ${baud} baud`)
+    } catch (err) {
+      showToast(`Baud switch error: ${err.message}`)
+    }
+  }
+
+  const handleDisconnectUsb = async () => {
+    try {
+      await webSerialService.disconnect()
+      showToast('ESP32 disconnected.')
+    } catch (err) {
+      showToast(`Disconnect error: ${err.message}`)
+    }
+  }
+
   // Find 3 primary ESP32 nodes from store
   const floodNode = useMemo(() => (
     esp32Nodes.find((n) => n.node_id?.includes('FLOOD') || n.category === 'flood')
@@ -679,6 +815,50 @@ export default function TelemetryPage() {
     esp32Nodes.find((n) => n.node_id?.includes('POLLUTION') || n.category === 'air')
   ), [esp32Nodes])
 
+  // Synchronize and query physical ESP32 gateway state
+  const handleCheckGateway = async () => {
+    try {
+      showToast('Checking Master ESP32 Gateway status...')
+      const res = await fetch(`${BACKEND_URL}/api/sensor-data/system-status`)
+      if (res.ok) {
+        const status = await res.json()
+        const isMaster = status?.master?.status === 'ONLINE'
+        setMasterOnline(isMaster)
+        if (isMaster) {
+          showToast('🟢 Master ESP32 Gateway is ONLINE and streaming!')
+          const latestRes = await fetch(`${BACKEND_URL}/api/sensor-data/latest`)
+          if (latestRes.ok) {
+            const latestData = await latestRes.json()
+            if (latestData.nodes?.FLOOD?.status === 'ONLINE' && latestData.nodes.FLOOD.latest) {
+              applySensorReading('FLOOD', latestData.nodes.FLOOD.latest)
+            }
+            if (latestData.nodes?.CO_TEMP?.status === 'ONLINE' && latestData.nodes.CO_TEMP.latest) {
+              applySensorReading('CO_TEMP', latestData.nodes.CO_TEMP.latest)
+            }
+            if (latestData.nodes?.POLLUTION?.status === 'ONLINE' && latestData.nodes.POLLUTION.latest) {
+              applySensorReading('POLLUTION', latestData.nodes.POLLUTION.latest)
+            }
+          }
+        } else {
+          setNodeOnlineStatus({ FLOOD: false, CO_TEMP: false, POLLUTION: false })
+          setSensorLastSeen({})
+          setMetricValues({})
+          showToast('🔴 Master ESP32 is OFFLINE. Connect USB COM port or power on hardware.')
+        }
+      } else {
+        setMasterOnline(false)
+        setSensorLastSeen({})
+        setMetricValues({})
+        showToast('🔴 Backend server reachable, but Master ESP32 is OFFLINE.')
+      }
+    } catch {
+      setMasterOnline(false)
+      setSensorLastSeen({})
+      setMetricValues({})
+      showToast('⚠ Cannot reach backend server on port 4000.')
+    }
+  }
+
   // Flattened metrics dictionary
   const metricsDefMap = useMemo(() => {
     const map = {}
@@ -686,38 +866,20 @@ export default function TelemetryPage() {
     return map
   }, [])
 
-  // Live metric values state
-  const [metricValues, setMetricValues] = useState(() => {
-    const init = {}
-    STATIONS_DEF.forEach((s) => s.metrics.forEach((m) => {
-      init[m.id] = m.base
-    }))
-    return init
-  })
+  // Live metric values state (empty until physical data arrives)
+  const [metricValues, setMetricValues] = useState({})
 
-  // Live rolling history buffer (30 points each)
+  // Live rolling history buffer (clean real-time buffers, no fake initial sine waves)
   const [liveData, setLiveData] = useState(() => {
-    const now = Date.now()
     const init = {}
     STATIONS_DEF.forEach((s) => s.metrics.forEach((m) => {
-      const arr = []
-      for (let i = 0; i < 30; i++) {
-        arr.push({ t: now - (29 - i) * 2000, v: m.base })
-      }
-      init[m.id] = arr
+      init[m.id] = []
     }))
     return init
   })
 
-  // Logs stream state
-  const [logs, setLogs] = useState(() => [
-    { id: 1, t: Date.now() - 1000, st: 'ESP32-POLLUTION', param: 'MQ-135 Toxic Gas', val: '34.6 %', tone: 'warn', lab: 'Elevated', fresh: false },
-    { id: 2, t: Date.now() - 2200, st: 'ESP32-POLLUTION', param: 'PM2.5 Density', val: '49 µg/m³', tone: 'warn', lab: 'Moderate', fresh: false },
-    { id: 3, t: Date.now() - 3500, st: 'ESP32-COTEMP', param: 'Ambient Temp', val: '27.7 °C', tone: 'ok', lab: 'Normal', fresh: false },
-    { id: 4, t: Date.now() - 4800, st: 'ESP32-COTEMP', param: 'CO Gas (MQ-7)', val: '2.71 ppm', tone: 'ok', lab: 'Normal', fresh: false },
-    { id: 5, t: Date.now() - 6100, st: 'ESP32-FLOOD', param: 'Water Distance', val: '45.0 cm', tone: 'ok', lab: 'Normal', fresh: false },
-    { id: 6, t: Date.now() - 7400, st: 'ESP32-FLOOD', param: 'Soil Saturation', val: '69.4 %', tone: 'ok', lab: 'Normal', fresh: false }
-  ])
+  // Logs stream state — starts empty; only real hardware readings populate this
+  const [logs, setLogs] = useState(() => [])
 
   // Filters for logs
   const [logStationFilter, setLogStationFilter] = useState('')
@@ -737,117 +899,129 @@ export default function TelemetryPage() {
   // ─── Immediate Physical Hardware Ingestion ────────────────────────────────
   // When ESP32 transmits packets via USB Web Serial or ESP-NOW Gateway, immediately
   // lock all measured physical values onto the page without artificial smoothing or simulated noise.
-  useEffect(() => {
-    if (!floodNode && !cotempNode && !pollutionNode) return
+  // ─── Central Unified Sensor Ingestion Function ───────────────────────────
+  const applySensorReading = useCallback((nodeKey, raw) => {
+    if (!raw || typeof raw !== 'object') return
     const now = Date.now()
+    const nodeUpper = String(nodeKey || raw.node || raw.node_id || '').toUpperCase()
     const liveMetrics = {}
     const newLogEntries = []
 
-    // 1. Flood Node (Ultrasonic water level + analog soil moisture)
-    if (floodNode?.is_live_hw) {
-      if (floodNode.water_level_cm != null) {
-        liveMetrics.water = floodNode.water_level_cm
-        newLogEntries.push({
-          st: 'ESP32-FLOOD',
-          param: 'Water Distance',
-          val: `${fmt(floodNode.water_level_cm, 1)} cm`,
-          mKey: 'water'
-        })
+    // 1. Flood Node (HC-SR04 ultrasonic distance + analog soil moisture)
+    if (nodeUpper.includes('FLOOD')) {
+      const dist = raw.distance ?? raw.distance_cm ?? raw.water_level_cm ?? raw.water
+      const soil = raw.soilMoisture ?? raw.soil_moisture ?? raw.soil_moisture_percent ?? raw.soil
+      // Strictly ignore blind spot / noise / timeout glitches (< 2.0 cm)
+      if (dist != null && !isNaN(dist) && Number(dist) >= 2.0) {
+        const numDist = Number(dist)
+        liveMetrics.water = numDist
+        newLogEntries.push({ st: 'ESP32-FLOOD', param: 'Water Distance', val: `${fmt(numDist, 1)} cm`, mKey: 'water' })
       }
-      if (floodNode.soil_moisture != null) {
-        liveMetrics.soil = floodNode.soil_moisture
-        newLogEntries.push({
-          st: 'ESP32-FLOOD',
-          param: 'Soil Saturation',
-          val: `${fmt(floodNode.soil_moisture, 1)} %`,
-          mKey: 'soil'
-        })
+      // Strictly ignore unread / zero soil saturation
+      if (soil != null && !isNaN(soil) && Number(soil) > 0) {
+        const numSoil = Number(soil)
+        liveMetrics.soil = numSoil
+        newLogEntries.push({ st: 'ESP32-FLOOD', param: 'Soil Saturation', val: `${fmt(numSoil, 1)} %`, mKey: 'soil' })
       }
     }
 
-    // 2. CO/Thermal Node (MQ-7 CO gas + DHT11/22 Temperature/Humidity + Optical Flame IR)
-    if (cotempNode?.is_live_hw) {
-      if (cotempNode.gas_ppm != null) {
-        liveMetrics.co = cotempNode.gas_ppm
-        newLogEntries.push({
-          st: 'ESP32-COTEMP',
-          param: 'CO Gas (MQ-7)',
-          val: `${fmt(cotempNode.gas_ppm, 2)} ppm`,
-          mKey: 'co'
-        })
+    // 2. CO / Thermal Node (ZE07-CO actual CO ppm + DHT11 Temp/Hum + Flame IR)
+    if (nodeUpper.includes('CO') || nodeUpper.includes('TEMP') || nodeUpper.includes('FIRE')) {
+      const co = raw.coPPM ?? raw.co_ppm ?? raw.gas_ppm ?? raw.co
+      const temp = raw.dhtTemperature ?? raw.temperature_c ?? raw.temp
+      const hum = raw.humidity ?? raw.humidity_pct ?? raw.hum
+      const flame = raw.flame_detected !== undefined ? raw.flame_detected : raw.flame
+      if (co != null && !isNaN(co) && Number(co) >= 0) {
+        const numCo = Number(co)
+        liveMetrics.co = numCo
+        newLogEntries.push({ st: 'ESP32-COTEMP', param: 'CO Gas (ZE07-CO)', val: `${fmt(numCo, 2)} ppm`, mKey: 'co' })
       }
-      if (cotempNode.temperature_c != null) {
-        liveMetrics.temp = cotempNode.temperature_c
-        newLogEntries.push({
-          st: 'ESP32-COTEMP',
-          param: 'Ambient Temp',
-          val: `${fmt(cotempNode.temperature_c, 1)} °C`,
-          mKey: 'temp'
-        })
+      if (temp != null && !isNaN(temp) && Number(temp) > 0) {
+        const numTemp = Number(temp)
+        liveMetrics.temp = numTemp
+        newLogEntries.push({ st: 'ESP32-COTEMP', param: 'Ambient Temp', val: `${fmt(numTemp, 1)} °C`, mKey: 'temp' })
       }
-      if (cotempNode.humidity_pct != null) {
-        liveMetrics.hum = cotempNode.humidity_pct
-        newLogEntries.push({
-          st: 'ESP32-COTEMP',
-          param: 'Relative Humidity',
-          val: `${fmt(cotempNode.humidity_pct, 1)} %`,
-          mKey: 'hum'
-        })
+      if (hum != null && !isNaN(hum) && Number(hum) > 0) {
+        const numHum = Number(hum)
+        liveMetrics.hum = numHum
+        newLogEntries.push({ st: 'ESP32-COTEMP', param: 'Relative Humidity', val: `${fmt(numHum, 1)} %`, mKey: 'hum' })
       }
-      if (cotempNode.flame_detected !== undefined) {
-        liveMetrics.flame = cotempNode.flame_detected ? 1 : 0
-        newLogEntries.push({
-          st: 'ESP32-COTEMP',
-          param: 'Flame Sensor',
-          val: cotempNode.flame_detected ? 'DETECTED / 1' : 'CLEAR / 0',
-          mKey: 'flame'
-        })
+      if (flame !== undefined && flame !== null) {
+        const flameVal = Boolean(flame) ? 1 : 0
+        liveMetrics.flame = flameVal
+        newLogEntries.push({ st: 'ESP32-COTEMP', param: 'Flame Sensor', val: flameVal ? 'DETECTED / 1' : 'CLEAR / 0', mKey: 'flame' })
       }
     }
 
-    // 3. Pollution Node (Dust Sensor PM2.5/PM10/PM1.0/OD + MQ-135 Toxic + MQ-4 Combustible)
-    if (pollutionNode?.is_live_hw) {
-      if (pollutionNode.smoke_aqi != null) {
-        liveMetrics.pm25 = pollutionNode.smoke_aqi
-        liveMetrics.pm10 = pollutionNode.pm10 || Math.round(pollutionNode.smoke_aqi * 1.35)
-        liveMetrics.pm1 = pollutionNode.pm1 || Math.round(pollutionNode.smoke_aqi * 0.62)
-        liveMetrics.od = pollutionNode.optical_density || pollutionNode.smoke_aqi
-        newLogEntries.push({
-          st: 'ESP32-POLLUTION',
-          param: 'PM2.5 Density',
-          val: `${fmt(pollutionNode.smoke_aqi, 0)} µg/m³`,
-          mKey: 'pm25'
-        })
+    // 3. Pollution Node (PMS5003 Laser PM + MQ-135 + MQ-4 relative gas)
+    if (nodeUpper.includes('POLLUTION') || nodeUpper.includes('AIR')) {
+      const p25 = raw.PM2_5 ?? raw.pm2_5 ?? raw.smoke_aqi
+      const p10 = raw.PM10 ?? raw.pm10
+      const p1 = raw.PM1_0 ?? raw.pm1_0 ?? raw.pm1
+      const mq135 = raw.mq135_strength
+      const mq4 = raw.mq4_strength
+      const od = raw.optical_density ?? p25
+
+      if (p25 != null && !isNaN(p25) && Number(p25) > 0) {
+        const num25 = Number(p25)
+        liveMetrics.pm25 = num25
+        liveMetrics.od = num25
+        newLogEntries.push({ st: 'ESP32-POLLUTION', param: 'PM2.5 Density', val: `${fmt(num25, 0)} µg/m³`, mKey: 'pm25' })
       }
-      if (pollutionNode.mq135_strength != null) {
-        liveMetrics.mq135 = pollutionNode.mq135_strength
-        newLogEntries.push({
-          st: 'ESP32-POLLUTION',
-          param: 'MQ-135 Toxic Gas',
-          val: `${fmt(pollutionNode.mq135_strength, 1)} %`,
-          mKey: 'mq135'
-        })
+      if (p10 != null && !isNaN(p10) && Number(p10) > 0) {
+        const num10 = Number(p10)
+        liveMetrics.pm10 = num10
+        newLogEntries.push({ st: 'ESP32-POLLUTION', param: 'PM10 Density', val: `${fmt(num10, 0)} µg/m³`, mKey: 'pm10' })
       }
-      if (pollutionNode.mq4_strength != null) {
-        liveMetrics.mq4 = pollutionNode.mq4_strength
-        newLogEntries.push({
-          st: 'ESP32-POLLUTION',
-          param: 'MQ-4 Combustible',
-          val: `${fmt(pollutionNode.mq4_strength, 1)} %`,
-          mKey: 'mq4'
-        })
+      if (p1 != null && !isNaN(p1) && Number(p1) > 0) {
+        const num1 = Number(p1)
+        liveMetrics.pm1 = num1
+        newLogEntries.push({ st: 'ESP32-POLLUTION', param: 'PM1.0 Density', val: `${fmt(num1, 1)} µg/m³`, mKey: 'pm1' })
+      }
+      if (mq135 != null && !isNaN(mq135) && Number(mq135) > 0) {
+        const num135 = Number(mq135)
+        liveMetrics.mq135 = num135
+        newLogEntries.push({ st: 'ESP32-POLLUTION', param: 'MQ-135 Gas', val: `${fmt(num135, 1)} %`, mKey: 'mq135' })
+      }
+      if (mq4 != null && !isNaN(mq4) && Number(mq4) > 0) {
+        const num4 = Number(mq4)
+        liveMetrics.mq4 = num4
+        newLogEntries.push({ st: 'ESP32-POLLUTION', param: 'MQ-4 Combustible', val: `${fmt(num4, 1)} %`, mKey: 'mq4' })
+      }
+      if (od != null && !isNaN(od) && Number(od) > 0 && liveMetrics.od == null) {
+        liveMetrics.od = Number(od)
       }
     }
 
-    // Immediately commit measured physical hardware numbers
     if (Object.keys(liveMetrics).length > 0) {
+      setSensorLastSeen((prev) => {
+        const next = { ...prev }
+        Object.keys(liveMetrics).forEach((k) => { next[k] = now })
+        return next
+      })
+
       setMetricValues((prev) => ({ ...prev, ...liveMetrics }))
 
       setLiveData((prevHist) => {
         const nextHist = { ...prevHist }
         Object.keys(liveMetrics).forEach((k) => {
           const curArr = prevHist[k] || []
-          nextHist[k] = [...curArr.slice(1), { t: now, v: liveMetrics[k] }]
+          const val = liveMetrics[k]
+          const lastEntry = curArr[curArr.length - 1]
+          if (lastEntry && now - lastEntry.t < 1500 && Math.abs(lastEntry.v - val) < 0.001) {
+            return
+          }
+          let newArr
+          if (curArr.length === 0) {
+            newArr = Array.from({ length: 8 }, (_, idx) => ({
+              t: now - (8 - idx) * 2000,
+              v: val
+            }))
+            newArr.push({ t: now, v: val })
+          } else {
+            newArr = [...curArr, { t: now, v: val }]
+          }
+          nextHist[k] = newArr.length > 30 ? newArr.slice(newArr.length - 30) : newArr
         })
         return nextHist
       })
@@ -872,122 +1046,184 @@ export default function TelemetryPage() {
         setLogs((prevLogs) => [...formattedRows, ...prevLogs.map((l) => ({ ...l, fresh: false }))].slice(0, 80))
       }
     }
-  }, [floodNode, cotempNode, pollutionNode, lastPhysicalPacketTime, metricsDefMap, getMetricTone, getMetricLabel])
+  }, [metricsDefMap, getMetricTone, getMetricLabel])
 
-  // ─── Continuous Real-Time Refresh Ticker ───────────────────────────────────
-  // Locks live hardware nodes to their actual readings; provides smooth organic drift
-  // only for non-connected/standby nodes or packet simulator mode.
+  // ─── 1. Ingestion from Zustand Store (Web Serial & SSE Bridge) ──────────────
+  useEffect(() => {
+    // Strictly guard against stale store mock values: only ingest if real physical packets arrived recently
+    const isPhysicalRecent = lastPhysicalPacketTime > 0 && (Date.now() - lastPhysicalPacketTime < 30000)
+    if (!isPhysicalRecent) return
+
+    if (floodNode && floodNode.is_live_hw && (floodNode.water_level_cm != null || floodNode.soil_moisture != null)) {
+      applySensorReading('FLOOD', floodNode)
+    }
+    if (cotempNode && cotempNode.is_live_hw && (cotempNode.temperature_c != null || cotempNode.gas_ppm != null)) {
+      applySensorReading('CO_TEMP', cotempNode)
+    }
+    if (pollutionNode && pollutionNode.is_live_hw && (pollutionNode.smoke_aqi != null || pollutionNode.mq135_strength != null)) {
+      applySensorReading('POLLUTION', pollutionNode)
+    }
+  }, [floodNode, cotempNode, pollutionNode, lastPhysicalPacketTime, applySensorReading])
+
+  // ─── 2. Direct Ingestion from Node.js Backend & Socket.IO Stream ────────────
+  useEffect(() => {
+    let socket = null
+
+    const fetchLatestFromBackend = async () => {
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/sensor-data/latest`)
+        if (!res.ok) {
+          setMasterOnline(false)
+          setNodeOnlineStatus({ FLOOD: false, CO_TEMP: false, POLLUTION: false })
+          setSensorLastSeen({})
+          return
+        }
+        const json = await res.json()
+        const isMaster = json?.master?.status === 'ONLINE'
+        setMasterOnline(isMaster)
+        if (json?.master?.lastSeen) {
+          setMasterLastSeen(json.master.lastSeen)
+        }
+
+        if (!isMaster) {
+          // Physical master ESP32 is OFFLINE: mark all nodes offline
+          setNodeOnlineStatus({ FLOOD: false, CO_TEMP: false, POLLUTION: false })
+          setSensorLastSeen({})
+          return
+        }
+
+        if (json && json.nodes) {
+          const floodOn = json.nodes.FLOOD?.status === 'ONLINE'
+          const cotempOn = json.nodes.CO_TEMP?.status === 'ONLINE'
+          const pollutionOn = json.nodes.POLLUTION?.status === 'ONLINE'
+
+          setNodeOnlineStatus({
+            FLOOD: floodOn,
+            CO_TEMP: cotempOn,
+            POLLUTION: pollutionOn,
+          })
+
+          if (json.nodes.FLOOD?.latest) {
+            applySensorReading('FLOOD', json.nodes.FLOOD.latest)
+          }
+          if (json.nodes.CO_TEMP?.latest) {
+            applySensorReading('CO_TEMP', json.nodes.CO_TEMP.latest)
+          }
+          if (json.nodes.POLLUTION?.latest) {
+            applySensorReading('POLLUTION', json.nodes.POLLUTION.latest)
+          }
+        }
+      } catch {
+        setMasterOnline(false)
+        setNodeOnlineStatus({ FLOOD: false, CO_TEMP: false, POLLUTION: false })
+        setSensorLastSeen({})
+      }
+    }
+
+    fetchLatestFromBackend()
+    const pollTimer = setInterval(fetchLatestFromBackend, 2000)
+
+    try {
+      socket = io(BACKEND_URL, {
+        reconnectionDelay: 2000,
+        transports: ['websocket', 'polling'],
+      })
+
+      socket.on('sensor:data', (packet) => {
+        if (packet && packet.node) {
+          setMasterOnline(true)
+          applySensorReading(packet.node, packet)
+        }
+      })
+    } catch {
+      // ignore
+    }
+
+    return () => {
+      clearInterval(pollTimer)
+      if (socket) socket.disconnect()
+    }
+  }, [applySensorReading, isSimulating])
+
+  // ─── 3. Continuous Sensor Liveness Monitor & Simulation Ticker ──────────────
+  // Inactive / OFF sensors are NEVER given fake numbers! They cleanly show OFFLINE.
   useEffect(() => {
     const interval = setInterval(() => {
       const now = Date.now()
 
-      setMetricValues((prev) => {
-        const next = { ...prev }
+      // Automatically expire sensors that stopped transmitting (> 35s)
+      if (!isSimulating) {
+        setSensorLastSeen((prev) => {
+          let changed = false
+          const next = {}
+          Object.keys(prev).forEach((k) => {
+            if (now - prev[k] < 35000) {
+              next[k] = prev[k]
+            } else {
+              changed = true
+            }
+          })
+          return changed ? next : prev
+        })
+      }
 
-        const isFloodLive = Boolean(floodNode?.is_live_hw)
-        const isCotempLive = Boolean(cotempNode?.is_live_hw)
-        const isPollutionLive = Boolean(pollutionNode?.is_live_hw)
-
-        const targets = {
-          water: floodNode?.water_level_cm != null ? floodNode.water_level_cm : 45.0,
-          soil: floodNode?.soil_moisture != null ? floodNode.soil_moisture : 69.4,
-          co: cotempNode?.gas_ppm != null ? cotempNode.gas_ppm : 2.71,
-          temp: cotempNode?.temperature_c != null ? cotempNode.temperature_c : 27.7,
-          hum: cotempNode?.humidity_pct != null ? cotempNode.humidity_pct : 61.8,
-          flame: cotempNode?.flame_detected ? 1 : 0,
-          pm1: (pollutionNode?.smoke_aqi != null ? pollutionNode.smoke_aqi : 49.0) * 0.62,
-          pm25: pollutionNode?.smoke_aqi != null ? pollutionNode.smoke_aqi : 49.0,
-          pm10: pollutionNode?.pm10 != null ? pollutionNode.pm10 : 65.0,
-          od: pollutionNode?.smoke_aqi != null ? pollutionNode.smoke_aqi : 49.0,
-          mq135: pollutionNode?.mq135_strength != null ? pollutionNode.mq135_strength : 34.6,
-          mq4: pollutionNode?.mq4_strength != null ? pollutionNode.mq4_strength : 15.6
-        }
-
-        const vol = isSimulating ? 2.8 : 1.0
-
-        Object.keys(targets).forEach((key) => {
-          const def = metricsDefMap[key]
-          if (!def) return
-          const isStationLive = def.station.id === 'flood' ? isFloodLive
-            : def.station.id === 'co' ? isCotempLive
-            : isPollutionLive
-
-          if (isStationLive) {
-            // Live Hardware: keep exact measured physical value without noise
-            next[key] = targets[key]
-          } else if (def.kind === 'binary') {
-            next[key] = targets[key]
-          } else {
-            // Standby virtual nodes: gentle realistic wave
-            const baseT = targets[key]
-            const noise = (Math.random() - 0.5) * 2 * def.noise * vol
-            const simSpike = isSimulating && def.station.id === 'air' && Math.random() < 0.15 ? Math.random() * 8 : 0
-            const candidate = prev[key] + (baseT - prev[key]) * 0.15 + noise + simSpike
-            next[key] = clamp(candidate, def.min, def.max)
-          }
+      // Only undulate numbers if the user explicitly turned ON test simulator
+      if (isSimulating) {
+        setMetricValues((prev) => {
+          const next = { ...prev }
+          Object.keys(metricsDefMap).forEach((key) => {
+            const def = metricsDefMap[key]
+            if (!def) return
+            const baseT = def.base || 30
+            const cur = prev[key] != null ? prev[key] : baseT
+            const noise = (Math.random() - 0.5) * 2 * (def.noise || 0.5) * 2.0
+            next[key] = clamp(cur + (baseT - cur) * 0.15 + noise, def.min, def.max)
+          })
+          return next
         })
 
-        // Update live historical curves
         setLiveData((prevHist) => {
           const nextHist = { ...prevHist }
-          Object.keys(next).forEach((key) => {
-            const currentArr = prevHist[key] || []
-            nextHist[key] = [...currentArr.slice(1), { t: now, v: next[key] }]
+          Object.keys(metricsDefMap).forEach((key) => {
+            const def = metricsDefMap[key]
+            if (def) {
+              const curArr = prevHist[key] || []
+              const baseT = def.base || 30
+              const curVal = metricValues[key] != null ? metricValues[key] : baseT
+              nextHist[key] = [...curArr.slice(1), { t: now, v: parseFloat(curVal.toFixed(def.dec || 1)) }]
+            }
           })
           return nextHist
         })
-
-        // Push standard heartbeat log if not flooded by physical packets
-        const candidateKeys = ['pm25', 'mq135', 'co', 'temp', 'water', 'soil']
-        const pickKey = candidateKeys[Math.floor(Math.random() * candidateKeys.length)]
-        const pickDef = metricsDefMap[pickKey]
-        if (pickDef) {
-          const val = next[pickKey]
-          const tone = getMetricTone(pickDef, val)
-          const lab = getMetricLabel(pickDef, val)
-          const formatted = pickDef.kind === 'binary'
-            ? (val ? 'Detected' : 'Clear')
-            : fmt(val, pickDef.dec) + (pickDef.unit ? ' ' + pickDef.unit : '')
-
-          setLogs((prevLogs) => [
-            {
-              id: `${now}-${Math.random()}`,
-              t: now,
-              st: pickDef.station.node,
-              param: pickDef.param,
-              val: formatted,
-              tone,
-              lab,
-              fresh: true
-            },
-            ...prevLogs.map((l) => ({ ...l, fresh: false }))
-          ].slice(0, 80))
-        }
-
-        return next
-      })
+      }
     }, 2000)
 
     return () => clearInterval(interval)
-  }, [floodNode, cotempNode, pollutionNode, isSimulating, metricsDefMap, getMetricTone, getMetricLabel])
+  }, [isSimulating, metricValues, metricsDefMap])
 
   // Station overall worst tone
   const getStationWorstTone = useCallback((station) => {
     let worst = 'ok'
+    let hasLiveMetric = false
     station.metrics.forEach((m) => {
+      if (!isSensorLive(m.id)) return
       const v = metricValues[m.id]
+      if (v == null) return
+      hasLiveMetric = true
       const tone = getMetricTone(m, v)
       if (RANK[tone] > RANK[worst]) worst = tone
     })
-    return worst
-  }, [metricValues, getMetricTone])
+    return hasLiveMetric ? worst : 'off'
+  }, [metricValues, getMetricTone, isSensorLive])
 
-  // Active alerts list derived from any metric with tone != 'ok'
+  // Active alerts list derived only from active/live metrics with tone != 'ok'
   const activeAlerts = useMemo(() => {
     const list = []
     STATIONS_DEF.forEach((s) => {
       s.metrics.forEach((m) => {
+        if (!isSensorLive(m.id)) return // do not generate fake alerts for offline sensors
         const v = metricValues[m.id]
+        if (v == null) return
         const tone = getMetricTone(m, v)
         if (RANK[tone] > 0) {
           const label = getMetricLabel(m, v)
@@ -1006,21 +1242,29 @@ export default function TelemetryPage() {
       })
     })
     return list.sort((a, b) => RANK[b.tone] - RANK[a.tone])
-  }, [metricValues, getMetricTone, getMetricLabel])
+  }, [metricValues, getMetricTone, getMetricLabel, isSensorLive])
 
   // Mesh stats
-  const activeNodesCount = [floodNode, cotempNode, pollutionNode].filter((n) => Boolean(n && n.status === 'online')).length || 3
-  const liveHwCount = [floodNode, cotempNode, pollutionNode].filter((n) => Boolean(n?.is_live_hw)).length
+  const activeSensorsCount = useMemo(() => {
+    return Object.keys(metricsDefMap).filter((k) => isSensorLive(k)).length
+  }, [metricsDefMap, isSensorLive])
+
+  const liveStationCount = useMemo(() => {
+    return STATIONS_DEF.filter((s) => isStationLive(s)).length
+  }, [isStationLive])
+
   const hazardScore = useMemo(() => {
     let sum = 0
     let count = 0
     STATIONS_DEF.forEach((s) => s.metrics.forEach((m) => {
+      if (!isSensorLive(m.id) || metricValues[m.id] == null) return
       const t = getMetricTone(m, metricValues[m.id])
       sum += [0, 0.4, 0.7, 1.0][RANK[t]] || 0
       count++
     }))
-    return Math.round((sum / Math.max(1, count)) * 100)
-  }, [metricValues, getMetricTone])
+    if (count === 0) return 0
+    return Math.round((sum / count) * 100)
+  }, [metricValues, getMetricTone, isSensorLive])
 
   // Simulator toggle
   const toggleSimulator = () => {
@@ -1089,6 +1333,276 @@ export default function TelemetryPage() {
       </svg>
 
       <main className="page" id="top">
+        {/* ─── LIVE ESP32 HARDWARE STATUS & CONNECTION BAR ───────────────── */}
+        <div style={{
+          background: masterOnline
+            ? 'linear-gradient(135deg, rgba(22, 163, 74, 0.08) 0%, rgba(31, 107, 245, 0.06) 100%)'
+            : 'linear-gradient(135deg, #ffffff 0%, #fff5f5 100%)',
+          border: masterOnline ? '1.5px solid #86efac' : '1.5px solid #fecaca',
+          borderRadius: '20px',
+          padding: '18px 24px',
+          marginBottom: '24px',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '14px',
+          boxShadow: masterOnline ? '0 6px 24px -4px rgba(34, 197, 94, 0.2)' : '0 2px 12px rgba(239, 68, 68, 0.06)',
+        }}>
+          {/* Top Row: Info & Main Action Buttons */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
+              <div style={{
+                width: '46px',
+                height: '46px',
+                borderRadius: '14px',
+                background: masterOnline ? 'linear-gradient(135deg, #16a34a, #22c55e)' : 'linear-gradient(135deg, #ef4444, #dc2626)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: '#ffffff',
+                fontSize: '24px',
+                boxShadow: masterOnline ? '0 0 16px rgba(34, 197, 94, 0.45)' : '0 4px 10px rgba(239, 68, 68, 0.2)',
+                flexShrink: 0
+              }}>
+                ⚡
+              </div>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  <span style={{ fontWeight: 800, fontSize: '15.5px', color: '#0f172a' }}>
+                    {masterOnline ? 'Master ESP32 Gateway: ONLINE' : 'Master ESP32 Gateway: OFFLINE'}
+                  </span>
+                  <span style={{
+                    fontSize: '11px',
+                    fontWeight: 700,
+                    padding: '3px 10px',
+                    borderRadius: '999px',
+                    background: masterOnline ? '#dcfce7' : '#fee2e2',
+                    color: masterOnline ? '#15803d' : '#991b1b',
+                    border: masterOnline ? '1px solid #bbf7d0' : '1px solid #fecaca',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}>
+                    <span style={{
+                      width: '7px',
+                      height: '7px',
+                      borderRadius: '50%',
+                      background: masterOnline ? '#22c55e' : '#ef4444',
+                      display: 'inline-block'
+                    }} className={masterOnline ? 'pulse' : ''} />
+                    {masterOnline ? 'ONLINE · LIVE TELEMETRY STREAM' : '🔴 OFFLINE · AWAITING HARDWARE'}
+                  </span>
+                </div>
+                <div style={{ fontSize: '12.5px', color: '#475569', marginTop: '4px', fontFamily: 'var(--mono)' }}>
+                  {masterOnline ? (
+                    <span>
+                      Port / Gateway: <strong style={{ color: '#0f172a' }}>ESP32 Master</strong> · Status: <strong style={{ color: '#16a34a' }}>ONLINE</strong> · Rx: <strong>{usbPacketCount} packets</strong> ({usbPacketsPerSec} pkt/s) · Active Sensors: <strong>{activeSensorsCount} / {Object.keys(metricsDefMap).length} Live</strong>
+                    </span>
+                  ) : (
+                    <span style={{ color: '#dc2626', fontWeight: 600 }}>
+                      Master ESP32 is OFFLINE. Connect physical Master ESP32 via USB COM port or start firmware. No fake or simulated values are shown.
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+              {/* Baud Rate Selector */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '11.5px', fontWeight: 700, color: '#64748b' }}>Baud:</span>
+                <select
+                  value={selectedBaud}
+                  onChange={(e) => {
+                    const b = Number(e.target.value)
+                    setSelectedBaud(b)
+                    if (usbConnected) handleSwitchBaud(b)
+                  }}
+                  style={{
+                    padding: '7px 10px',
+                    borderRadius: '9px',
+                    border: '1.5px solid #cbd5e1',
+                    background: '#ffffff',
+                    fontSize: '12px',
+                    fontWeight: 700,
+                    fontFamily: 'var(--mono)',
+                    color: '#0f172a',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <option value={115200}>115200 Baud</option>
+                  <option value={9600}>9600 Baud</option>
+                  <option value={57600}>57600 Baud</option>
+                  <option value={38400}>38400 Baud</option>
+                </select>
+              </div>
+
+              {/* Check Gateway Status Button */}
+              <button
+                type="button"
+                onClick={handleCheckGateway}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: '10px',
+                  background: masterOnline ? 'linear-gradient(135deg, #16a34a 0%, #22c55e 100%)' : '#ffffff',
+                  color: masterOnline ? '#ffffff' : '#334155',
+                  fontSize: '12px',
+                  fontWeight: 700,
+                  border: '1.5px solid #cbd5e1',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px',
+                  cursor: 'pointer',
+                  boxShadow: masterOnline ? '0 2px 10px rgba(34, 197, 94, 0.35)' : '0 1px 4px rgba(0,0,0,0.05)'
+                }}
+              >
+                <span>🔄</span>
+                <span>Check Gateway Status</span>
+              </button>
+
+              {usbConnected ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setUsbModalOpen(true)}
+                    style={{
+                      padding: '8px 14px',
+                      borderRadius: '10px',
+                      background: '#ffffff',
+                      border: '1.5px solid #cbd5e1',
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      color: '#1e293b',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    <span>&gt;_ Live Terminal</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDisconnectUsb}
+                    style={{
+                      padding: '8px 14px',
+                      borderRadius: '10px',
+                      background: '#fee2e2',
+                      border: '1.5px solid #fecaca',
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      color: '#b91c1c',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Disconnect
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => handleConnectUsb(selectedBaud)}
+                    disabled={connectingHw}
+                    style={{
+                      padding: '10px 20px',
+                      borderRadius: '12px',
+                      background: 'linear-gradient(135deg, #1f6bf5 0%, #12b8d8 100%)',
+                      color: '#ffffff',
+                      fontSize: '13px',
+                      fontWeight: 700,
+                      border: 'none',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      cursor: 'pointer',
+                      boxShadow: '0 4px 14px rgba(31, 107, 245, 0.35)',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    <span style={{ fontSize: '15px' }}>⚡</span>
+                    <span>{connectingHw ? 'Opening Port...' : 'Connect ESP32 (USB COM Port)'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setUsbModalOpen(true)}
+                    style={{
+                      padding: '10px 14px',
+                      borderRadius: '12px',
+                      background: '#ffffff',
+                      border: '1.5px solid #cbd5e1',
+                      fontSize: '12px',
+                      fontWeight: 700,
+                      color: '#334155',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Settings
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Warning Banner if Port is open but 0 packets arrived */}
+          {usbConnected && usbPacketCount === 0 && (
+            <div style={{
+              width: '100%',
+              padding: '10px 14px',
+              background: '#fffbeb',
+              border: '1px solid #fde68a',
+              borderRadius: '12px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              flexWrap: 'wrap',
+              gap: '10px',
+              fontSize: '12px',
+              color: '#92400e'
+            }}>
+              <div>
+                <strong>⚠ Port open, but 0 packets received.</strong>
+                <span style={{ marginLeft: '6px' }}>
+                  If your ESP32 Arduino code has <code>Serial.begin(9600)</code>, click below to switch baud rate:
+                </span>
+              </div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button
+                  type="button"
+                  onClick={() => handleSwitchBaud(9600)}
+                  style={{
+                    padding: '5px 12px',
+                    borderRadius: '8px',
+                    background: '#f59e0b',
+                    color: '#ffffff',
+                    fontWeight: 700,
+                    fontSize: '11px',
+                    border: 'none',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Switch to 9600 Baud
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSwitchBaud(115200)}
+                  style={{
+                    padding: '5px 12px',
+                    borderRadius: '8px',
+                    background: '#ffffff',
+                    color: '#92400e',
+                    fontWeight: 700,
+                    fontSize: '11px',
+                    border: '1px solid #fcd34d',
+                    cursor: 'pointer'
+                  }}
+                >
+                  Keep 115200 Baud
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* ─── Hero Section ──────────────────────────────────────────────── */}
         <section className="hero">
           <div>
@@ -1139,8 +1653,8 @@ export default function TelemetryPage() {
                 <p>{selectedRegion}</p>
               </div>
               <span className="glass-chip">
-                <span className="pulse" />
-                Active stream
+                <span className={masterOnline ? "pulse" : ""} style={{ background: masterOnline ? '#22c55e' : '#ef4444' }} />
+                {masterOnline ? "Active stream" : "Gateway Offline"}
               </span>
             </div>
 
@@ -1156,43 +1670,51 @@ export default function TelemetryPage() {
               <circle cx="250" cy="142" r="70" fill="url(#gwg)" />
 
               {/* Flow Dashed Connection Lines */}
-              <line className="flow" x1="90" y1="58" x2="250" y2="142" />
-              <line className="flow" x1="100" y1="200" x2="250" y2="142" />
-              <line className="flow" x1="388" y1="96" x2="250" y2="142" />
+              <line className="flow" x1="90" y1="58" x2="250" y2="142" stroke={masterOnline ? undefined : '#cbd5e1'} strokeDasharray={masterOnline ? '4 4' : '2 4'} />
+              <line className="flow" x1="100" y1="200" x2="250" y2="142" stroke={masterOnline ? undefined : '#cbd5e1'} strokeDasharray={masterOnline ? '4 4' : '2 4'} />
+              <line className="flow" x1="388" y1="96" x2="250" y2="142" stroke={masterOnline ? undefined : '#cbd5e1'} strokeDasharray={masterOnline ? '4 4' : '2 4'} />
 
               {/* Pulsing Gateway Radar Rings */}
-              <circle className="gw-ring" cx="250" cy="142" r="34" />
-              <circle className="gw-ring b" cx="250" cy="142" r="34" />
+              {masterOnline && (
+                <>
+                  <circle className="gw-ring" cx="250" cy="142" r="34" />
+                  <circle className="gw-ring b" cx="250" cy="142" r="34" />
+                </>
+              )}
 
-              {/* Traveling Packet Dots */}
-              <circle r="3.4" fill="#fff">
-                <animateMotion
-                  path="M90,58 L250,142"
-                  dur={isSimulating ? '1.1s' : '2.2s'}
-                  repeatCount="indefinite"
-                />
-              </circle>
-              <circle r="3.4" fill="#fff">
-                <animateMotion
-                  path="M100,200 L250,142"
-                  dur={isSimulating ? '1.25s' : '2.55s'}
-                  repeatCount="indefinite"
-                />
-              </circle>
-              <circle r="3.4" fill="#fff">
-                <animateMotion
-                  path="M388,96 L250,142"
-                  dur={isSimulating ? '1.4s' : '2.9s'}
-                  repeatCount="indefinite"
-                />
-              </circle>
+              {/* Traveling Packet Dots — only active when physical gateway is transmitting */}
+              {masterOnline && (
+                <>
+                  <circle r="3.4" fill="#fff">
+                    <animateMotion
+                      path="M90,58 L250,142"
+                      dur={isSimulating ? '1.1s' : '2.2s'}
+                      repeatCount="indefinite"
+                    />
+                  </circle>
+                  <circle r="3.4" fill="#fff">
+                    <animateMotion
+                      path="M100,200 L250,142"
+                      dur={isSimulating ? '1.25s' : '2.55s'}
+                      repeatCount="indefinite"
+                    />
+                  </circle>
+                  <circle r="3.4" fill="#fff">
+                    <animateMotion
+                      path="M388,96 L250,142"
+                      dur={isSimulating ? '1.4s' : '2.9s'}
+                      repeatCount="indefinite"
+                    />
+                  </circle>
+                </>
+              )}
 
               {/* Center Gateway Marker */}
-              <circle cx="250" cy="142" r="27" fill="#fff" />
+              <circle cx="250" cy="142" r="27" fill={masterOnline ? "#fff" : "#fef2f2"} stroke={masterOnline ? "#22c55e" : "#ef4444"} strokeWidth="2.5" />
               <g className="nic" transform="translate(237, 129)">
                 <use href="#i-radio" width="26" height="26" />
               </g>
-              <text x="250" y="192" textAnchor="middle" fontSize="12.5" fontWeight="700">Gateway</text>
+              <text x="250" y="192" textAnchor="middle" fontSize="12.5" fontWeight="700">Gateway: {masterOnline ? 'ONLINE' : 'OFFLINE'}</text>
 
               {/* Node 1: Flood */}
               <circle
@@ -1200,16 +1722,16 @@ export default function TelemetryPage() {
                 cy="58"
                 r="27"
                 fill="none"
-                stroke={TONE_ON_BLUE[getStationWorstTone(STATIONS_DEF[0])]}
+                stroke={isStationLive(STATIONS_DEF[0]) ? '#86efac' : '#cbd5e1'}
                 strokeWidth="3"
               />
-              <circle cx="90" cy="58" r="21" fill="#fff" />
+              <circle cx="90" cy="58" r="21" fill={isStationLive(STATIONS_DEF[0]) ? '#fff' : '#f8fafc'} />
               <g className="nic" transform="translate(79, 47)">
                 <use href="#i-drop" width="22" height="22" />
               </g>
               <text x="90" y="104" textAnchor="middle" fontSize="12.5" fontWeight="700">Flood</text>
-              <text x="90" y="120" textAnchor="middle" fontSize="12" opacity="0.85">
-                {fmt(metricValues.water, 1)} cm
+              <text x="90" y="120" textAnchor="middle" fontSize="12" opacity={isSensorLive('water') && metricValues.water != null ? '0.85' : '0.45'}>
+                {isSensorLive('water') && metricValues.water != null ? `${fmt(metricValues.water, 1)} cm` : 'OFFLINE'}
               </text>
 
               {/* Node 2: CO + thermal */}
@@ -1218,16 +1740,16 @@ export default function TelemetryPage() {
                 cy="200"
                 r="27"
                 fill="none"
-                stroke={TONE_ON_BLUE[getStationWorstTone(STATIONS_DEF[1])]}
+                stroke={isStationLive(STATIONS_DEF[1]) ? '#86efac' : '#cbd5e1'}
                 strokeWidth="3"
               />
-              <circle cx="100" cy="200" r="21" fill="#fff" />
+              <circle cx="100" cy="200" r="21" fill={isStationLive(STATIONS_DEF[1]) ? '#fff' : '#f8fafc'} />
               <g className="nic" transform="translate(89, 189)">
                 <use href="#i-flame" width="22" height="22" />
               </g>
               <text x="100" y="246" textAnchor="middle" fontSize="12.5" fontWeight="700">CO + thermal</text>
-              <text x="100" y="262" textAnchor="middle" fontSize="12" opacity="0.85">
-                {fmt(metricValues.temp, 1)} °C
+              <text x="100" y="262" textAnchor="middle" fontSize="12" opacity={isSensorLive('temp') && metricValues.temp != null ? '0.85' : '0.45'}>
+                {isSensorLive('temp') && metricValues.temp != null ? `${fmt(metricValues.temp, 1)} °C` : 'OFFLINE'}
               </text>
 
               {/* Node 3: Air quality */}
@@ -1236,28 +1758,32 @@ export default function TelemetryPage() {
                 cy="96"
                 r="27"
                 fill="none"
-                stroke={TONE_ON_BLUE[getStationWorstTone(STATIONS_DEF[2])]}
+                stroke={isStationLive(STATIONS_DEF[2]) ? '#86efac' : '#cbd5e1'}
                 strokeWidth="3"
               />
-              <circle cx="388" cy="96" r="21" fill="#fff" />
+              <circle cx="388" cy="96" r="21" fill={isStationLive(STATIONS_DEF[2]) ? '#fff' : '#f8fafc'} />
               <g className="nic" transform="translate(377, 85)">
                 <use href="#i-wind" width="22" height="22" />
               </g>
               <text x="388" y="142" textAnchor="middle" fontSize="12.5" fontWeight="700">Air quality</text>
-              <text x="388" y="158" textAnchor="middle" fontSize="12" opacity="0.85">
-                PM2.5 {fmt(metricValues.pm25, 0)}
+              <text x="388" y="158" textAnchor="middle" fontSize="12" opacity={isSensorLive('pm25') && metricValues.pm25 != null ? '0.85' : '0.45'}>
+                {isSensorLive('pm25') && metricValues.pm25 != null ? `PM2.5 ${fmt(metricValues.pm25, 0)}` : 'OFFLINE'}
               </text>
             </svg>
 
             {/* Mesh Stats */}
             <div className="mesh-stats">
               <div className="mstat">
-                <span>Nodes online</span>
-                <b>{liveHwCount > 0 ? `${liveHwCount} / 3 Live HW` : `${activeNodesCount} / 3 Online`}</b>
+                <span>Active stations</span>
+                <b>{liveStationCount > 0 ? `${liveStationCount} / 3 Live` : '0 / 3 (Standby)'}</b>
+              </div>
+              <div className="mstat">
+                <span>Live sensors</span>
+                <b>{activeSensorsCount > 0 ? `${activeSensorsCount} / 8 Live` : '0 / 8 Sensors'}</b>
               </div>
               <div className="mstat">
                 <span>Network latency</span>
-                <b>{isSimulating ? '19 ms' : '12 ms'}</b>
+                <b>{usbConnected ? (isSimulating ? '19 ms' : '8 ms (USB Serial)') : '12 ms'}</b>
               </div>
               <div className="mstat">
                 <span>Combined hazard index</span>
@@ -1320,16 +1846,19 @@ export default function TelemetryPage() {
                       <div className="st-badges">
                         <span className="node-id">{station.node}</span>
                         {(() => {
-                          const n = station.id === 'flood' ? floodNode : station.id === 'co' ? cotempNode : pollutionNode
-                          return n?.is_live_hw ? (
-                            <span className="hw">
-                              <span className="pulse" />
-                              Live hardware (Connected)
-                            </span>
-                          ) : (
-                            <span className="hw" style={{ background: '#f1f5f9', color: '#64748b' }}>
-                              <span className="pulse" style={{ color: '#94a3b8' }} />
-                              Standby (Virtual Mesh)
+                          const stationLive = isStationLive(station)
+                          if (stationLive) {
+                            return (
+                              <span className="hw" style={{ background: '#dcfce7', color: '#15803d', border: '1.5px solid #86efac', fontWeight: 800 }}>
+                                <span className="pulse" style={{ color: '#22c55e' }} />
+                                🟢 ONLINE · LIVE TELEMETRY STREAM
+                              </span>
+                            )
+                          }
+                          return (
+                            <span className="hw" style={{ background: '#fee2e2', color: '#991b1b', border: '1.5px solid #fca5a5', fontWeight: 800 }}>
+                              <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#ef4444', display: 'inline-block' }} />
+                              🔴 OFFLINE · AWAITING PHYSICAL SENSOR DATA
                             </span>
                           )
                         })()}
@@ -1348,30 +1877,76 @@ export default function TelemetryPage() {
                   {/* Metrics Row */}
                   <div className="metrics">
                     {station.metrics.map((m) => {
+                      const live = isSensorLive(m.id)
                       const v = metricValues[m.id]
-                      const tone = getMetricTone(m, v)
-                      const lbl = getMetricLabel(m, v)
+                      const tone = live && v != null ? getMetricTone(m, v) : 'ok'
+                      const lbl = live && v != null ? getMetricLabel(m, v) : 'Sensor Off'
                       const isBinary = m.kind === 'binary'
-                      const pct = clamp(((v - m.min) / Math.max(0.001, m.max - m.min)) * 100, 0, 100)
+                      const pct = live && v != null
+                        ? clamp(((v - m.min) / Math.max(0.001, m.max - m.min)) * 100, 0, 100)
+                        : 0
 
                       return (
-                        <div key={m.id} className={`metric tone-${tone} ${isBinary ? 'binary' : ''}`} id={`m-${m.id}`}>
+                        <div key={m.id} className={`metric tone-${live ? tone : 'off'} ${isBinary ? 'binary' : ''}`} id={`m-${m.id}`} style={{
+                          opacity: live ? 1 : 0.65,
+                          border: live
+                            ? (tone === 'bad' ? '1.5px solid #ef4444' : tone === 'poor' ? '1.5px solid #f97316' : '1.5px solid #86efac')
+                            : '1.5px dashed #cbd5e1',
+                          background: live ? '#ffffff' : '#f8fafc',
+                          transition: 'all 0.3s ease'
+                        }}>
                           <div className="m-top">
-                            <span className="m-label">{m.label}</span>
-                            <span className="chip">{lbl}</span>
+                            <span className="m-label" style={{ fontWeight: 700, color: live ? '#0f172a' : '#64748b' }}>{m.label}</span>
+                            {live ? (
+                              <span className="chip" style={{
+                                background: tone === 'bad' ? '#fee2e2' : tone === 'poor' ? '#ffedd5' : '#dcfce7',
+                                color: tone === 'bad' ? '#b91c1c' : tone === 'poor' ? '#c2410c' : '#15803d',
+                                border: '1px solid currentColor',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '5px'
+                              }}>
+                                <span className="pulse" style={{ color: 'currentColor' }} />
+                                🟢 LIVE · {lbl}
+                              </span>
+                            ) : (
+                              <span className="chip" style={{ background: '#f1f5f9', color: '#94a3b8', border: '1px solid #cbd5e1' }}>
+                                ⚪ SENSOR OFF
+                              </span>
+                            )}
                           </div>
-                          <div className="m-val">
-                            <span className="m-num">
-                              {isBinary ? (v ? 'DETECTED / 1' : 'CLEAR / 0') : fmt(v, m.dec)}
-                            </span>
-                            {m.unit && <small>{m.unit}</small>}
+
+                          <div className="m-val" style={{ margin: '10px 0 6px 0' }}>
+                            {live && v != null ? (
+                              <>
+                                <span className="m-num" style={{ color: '#0f172a', fontWeight: 800 }}>
+                                  {isBinary ? (v ? 'DETECTED / 1' : 'CLEAR / 0') : fmt(v, m.dec)}
+                                </span>
+                                {m.unit && <small style={{ color: '#475569', fontWeight: 600 }}>{m.unit}</small>}
+                              </>
+                            ) : (
+                              <span className="m-num" style={{ color: '#94a3b8', fontSize: '20px', letterSpacing: '2px' }}>
+                                -- <small style={{ fontSize: '11px', color: '#94a3b8', letterSpacing: 'normal', fontWeight: 600 }}>(No Signal)</small>
+                              </span>
+                            )}
                           </div>
+
                           {!isBinary && (
-                            <div className="gauge">
-                              <i style={{ width: `${pct.toFixed(1)}%` }} />
+                            <div className="gauge" style={{ background: '#e2e8f0', height: '6px', borderRadius: '3px' }}>
+                              <i style={{
+                                width: `${pct.toFixed(1)}%`,
+                                background: live ? (tone === 'bad' ? '#ef4444' : tone === 'poor' ? '#f97316' : '#22c55e') : '#cbd5e1'
+                              }} />
                             </div>
                           )}
-                          <p className="m-note">{m.note}</p>
+
+                          <p className="m-note" style={{ fontSize: '11px', marginTop: '6px', color: live ? '#15803d' : '#94a3b8' }}>
+                            {live ? (
+                              <span>⚡ Live hardware stream active · Last packet {sensorLastSeen[m.id] ? ago(sensorLastSeen[m.id]) : 'Just now'}</span>
+                            ) : (
+                              <span>Sensor offline. Connect sensor pins on ESP32 to stream physical readings.</span>
+                            )}
+                          </p>
                         </div>
                       )
                     })}

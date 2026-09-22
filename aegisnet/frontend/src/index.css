@@ -254,4 +254,113 @@ body {
   background: #0f172a !important;
 }
 
+/* ─── Professional PDF Export & Print Stylesheet ────────────────────────────── */
+@page {
+  size: A4 landscape;
+  margin: 10mm 8mm;
+}
+
+@media print {
+  /* Preserve background colors in dark header bands */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Hide navigation, top bars, footers, and buttons during print/PDF generation */
+  header,
+  footer,
+  .no-print,
+  button,
+  select,
+  input,
+  nav,
+  .leaflet-control-container,
+  [role="dialog"] {
+    display: none !important;
+  }
+
+  /* Reset body and background for crisp, high-contrast printouts */
+  html, body {
+    background: #ffffff !important;
+    color: #0f172a !important;
+    font-size: 8pt !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+  }
+
+  /* Expand layout container wrappers only */
+  main,
+  .max-w-7xl,
+  .max-w-6xl,
+  .max-w-\[1600px\],
+  .px-4,
+  .px-6,
+  .py-6,
+  .lg\:px-6 {
+    max-width: 100% !important;
+    width: 100% !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    overflow: visible !important;
+  }
+
+  /* Collapse vertical gaps between sections */
+  .space-y-6 > * + * {
+    margin-top: 8px !important;
+  }
+
+  /* Full Width Tables without horizontal scrollbars */
+  .overflow-x-auto {
+    overflow: visible !important;
+  }
+
+  table {
+    width: 100% !important;
+    max-width: 100% !important;
+    table-layout: fixed !important;
+    border-collapse: collapse !important;
+    page-break-inside: auto;
+    font-size: 7.5pt !important;
+  }
+
+  tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+
+  th {
+    background: #f1f5f9 !important;
+    color: #334155 !important;
+    font-weight: 700 !important;
+    padding: 4px 6px !important;
+    border: 1px solid #cbd5e1 !important;
+    font-size: 7pt !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.04em;
+  }
+
+  td {
+    padding: 4px 6px !important;
+    border: 1px solid #e2e8f0 !important;
+    font-size: 7.5pt !important;
+    word-break: break-word !important;
+    overflow-wrap: break-word !important;
+  }
+
+  thead {
+    display: table-header-group;
+  }
+
+  /* Ensure card borders print with sharp crisp lines — no shadows */
+  .border,
+  .rounded-3xl,
+  .rounded-2xl {
+    box-shadow: none !important;
+    border-radius: 4px !important;
+    border: 1px solid #cbd5e1 !important;
+  }
+}
+
 

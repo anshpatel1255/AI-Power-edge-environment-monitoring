@@ -17,7 +17,7 @@ export default function EmergencyModal() {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 backdrop-blur-md p-4 animate-fade-in font-sans">
+    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-950/60 backdrop-blur-md p-4 animate-fade-in font-sans">
       <div className="bg-white dark:bg-slate-900 border border-red-500/30 dark:border-red-500/40 rounded-3xl p-6 w-full max-w-md shadow-2xl space-y-4">
         <div className="flex items-center gap-3.5 border-b border-slate-200 dark:border-slate-800 pb-4">
           <div className="w-12 h-12 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-600 dark:text-red-400 flex items-center justify-center text-xl font-bold flex-shrink-0">

@@ -645,6 +645,13 @@
   --tt: #fff4f5;
 }
 
+.telemetry-page .tone-off {
+  --fg: #64748b;
+  --chip: #f1f5f9;
+  --bd: #cbd5e1;
+  --tt: #f8fafc;
+}
+
 /* Charts */
 .telemetry-page .charts {
   display: grid;

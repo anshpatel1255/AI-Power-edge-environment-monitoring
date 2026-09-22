@@ -13,6 +13,7 @@ import EmergencyModal from './components/overlays/EmergencyModal'
 import UsbSerialModal from './components/overlays/UsbSerialModal'
 
 // Pages
+import AegisDashboard from './pages/AegisDashboard'
 import Dashboard from './pages/Dashboard'
 import MapPage from './pages/MapPage'
 import HistoryPage from './pages/HistoryPage'
@@ -108,6 +109,8 @@ export default function App() {
             />
             <Route path="/landing" element={<LandingPage />} />
             <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/situation" element={<Dashboard />} />
+            <Route path="/aegis" element={<AegisDashboard />} />
             <Route path="/map" element={<MapPage />} />
             <Route path="/history" element={<HistoryPage />} />
             <Route path="/analysis" element={<AnalysisPage />} />

@@ -13,6 +13,8 @@ const alertsRouter     = require('./routes/alerts.routes');
 const thresholdsRouter = require('./routes/thresholds.routes');
 const authRouter       = require('./routes/auth.routes');
 const readingsRouter   = require('./routes/readings.routes');
+const predictRouter    = require('./routes/predict.routes');
+const sensorDataRouter = require('./routes/sensorData.routes'); // ← SIH 2026 Master ESP32 Gateway API
 const db               = require('./config/db');
 
 const app    = express();
@@ -25,11 +27,13 @@ app.use(express.json());
 app.use(morgan('dev'));
 
 // ── Routes ────────────────────────────────────────────────────────────────────
+app.use('/api/sensor-data', sensorDataRouter); // Master ESP32 Gateway (POST/GET)
 app.use('/api/nodes',      nodesRouter);
 app.use('/api/alerts',     alertsRouter);
 app.use('/api/thresholds', thresholdsRouter);
 app.use('/api/auth',       authRouter);
 app.use('/api/readings',   readingsRouter);
+app.use('/api/predict',    predictRouter);  // ← Code Vortex AI Engine
 
 // Health check
 app.get('/api/health', async (req, res) => {

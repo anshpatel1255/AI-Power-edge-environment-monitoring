@@ -14,6 +14,8 @@ export default function TopHeader({ onOpenCommandPalette, onOpenScenarioDrawer }
   const setSelectedRegion = useStore((s) => s.setSelectedRegion)
   const alerts            = useStore((s) => s.alerts)
   const usbConnected      = useStore((s) => s.usbConnected)
+  const masterGatewayStatus = useStore((s) => s.masterGatewayStatus)
+  const isMasterOnline    = masterGatewayStatus === 'ONLINE'
   const user              = useAuthStore((s) => s.user)
   const logout            = useAuthStore((s) => s.logout)
 
@@ -274,7 +276,7 @@ export default function TopHeader({ onOpenCommandPalette, onOpenScenarioDrawer }
             >
               <span className={clsx(location.pathname === '/telemetry' ? 'text-white' : 'text-blue-500')}>⚡</span>
               <span>Live Telemetry</span>
-              {usbConnected && (
+              {isMasterOnline && (
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping inline-block" />
               )}
             </Link>
@@ -319,7 +321,10 @@ export default function TopHeader({ onOpenCommandPalette, onOpenScenarioDrawer }
             {/* '▷ Simulate' Gradient Pill Button */}
             <button
               type="button"
-              onClick={onOpenScenarioDrawer}
+              onClick={() => {
+                if (onOpenScenarioDrawer) onOpenScenarioDrawer()
+                useStore.getState().setScenarioDrawerOpen(true)
+              }}
               className="h-9 px-4 bg-gradient-to-r from-blue-600 to-cyan-500 hover:from-blue-700 hover:to-cyan-600 text-white rounded-full text-xs font-bold flex items-center gap-1.5 transition-all shadow-md shadow-blue-500/25 hover:scale-105 cursor-pointer"
             >
               <span className="text-xs">▷</span>

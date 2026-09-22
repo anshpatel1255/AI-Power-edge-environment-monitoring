@@ -3,14 +3,12 @@ import { Link } from 'react-router-dom'
 
 export default function Footer() {
   return (
-    <footer className="w-full max-w-[1600px] mx-auto px-4 sm:px-6 lg:px-8 pb-8 pt-3 font-sans select-none">
-      <div className="w-full bg-white dark:bg-slate-900 border border-slate-200/90 dark:border-slate-800 rounded-3xl overflow-hidden shadow-2xs relative transition-all">
-        
-        {/* Sleek Top Accent Gradient Line */}
-        <div className="h-[3px] w-full bg-gradient-to-r from-blue-600 via-sky-400 to-cyan-400" />
+    <footer className="w-full bg-white dark:bg-slate-900 border-t border-slate-200/90 dark:border-slate-800 font-sans select-none relative transition-all no-print mt-12">
+      {/* Sleek Top Accent Gradient Line stretching 100% edge-to-edge */}
+      <div className="h-[3px] w-full bg-gradient-to-r from-blue-600 via-sky-400 to-cyan-400" />
 
-        {/* Inner Content */}
-        <div className="px-6 sm:px-10 lg:px-14 pt-10 pb-8 space-y-10">
+      {/* Inner Content Centered Container */}
+      <div className="w-full max-w-[1600px] mx-auto px-6 sm:px-10 lg:px-14 pt-10 pb-8 space-y-10">
           
           {/* Top Row: Brand & 4 Link Columns */}
           <div className="flex flex-col lg:flex-row items-start justify-between gap-10 lg:gap-14">
@@ -198,7 +196,7 @@ export default function Footer() {
 
               {/* Email / Mail */}
               <a
-                href="mailto:support@aegisnet.org"
+                href="mailto:support@codevortex.org"
                 className="w-9 h-9 rounded-full border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 flex items-center justify-center text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:border-blue-300 transition-all shadow-2xs"
                 title="Contact Support"
               >
@@ -216,8 +214,6 @@ export default function Footer() {
           </div>
 
         </div>
-
-      </div>
     </footer>
   )
 }

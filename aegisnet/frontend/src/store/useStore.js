@@ -35,15 +35,78 @@ function getSocket() {
     _socket.on('alert:new', (alert) => {
       useStore.getState().addRealAlert(alert)
     })
+    _socket.on('sensor:data', (packet) => {
+      useStore.getState().setMasterGatewayStatus('ONLINE', new Date().toLocaleTimeString())
+      if (packet && packet.node) {
+        const nodeUpper = String(packet.node).toUpperCase()
+        if (nodeUpper.includes('FLOOD')) {
+          useStore.getState().upsertEsp32Node({
+            node_id: 'ESP32-FLOOD',
+            name: 'ESP32 Flood & Water Sentinel',
+            category: 'flood',
+            water_level_cm: packet.distance ?? packet.water_level_cm,
+            soil_moisture: packet.soilMoisture ?? packet.soil_moisture,
+            status: packet.status || 'online',
+            is_live_hw: true,
+            last_update: 'Just now',
+          })
+        } else if (nodeUpper.includes('CO') || nodeUpper.includes('TEMP') || nodeUpper.includes('FIRE')) {
+          useStore.getState().upsertEsp32Node({
+            node_id: 'ESP32-COTEMP',
+            name: 'ESP32 Fire & CO-Thermal Sentinel',
+            category: 'fire',
+            gas_ppm: packet.coPPM ?? packet.co_ppm ?? packet.gas_ppm,
+            temperature_c: packet.dhtTemperature ?? packet.temperature_c,
+            humidity_pct: packet.humidity ?? packet.humidity_pct,
+            flame_detected: packet.flame_detected,
+            status: packet.status || 'online',
+            is_live_hw: true,
+            last_update: 'Just now',
+          })
+        } else if (nodeUpper.includes('POLLUTION') || nodeUpper.includes('AIR')) {
+          useStore.getState().upsertEsp32Node({
+            node_id: 'ESP32-POLLUTION',
+            name: 'ESP32 Air Quality & Toxic Gas Sentinel',
+            category: 'air',
+            smoke_aqi: packet.PM2_5 ?? packet.pm2_5,
+            pm10: packet.PM10 ?? packet.pm10,
+            pm1: packet.PM1_0 ?? packet.pm1_0,
+            mq135_strength: packet.mq135_strength,
+            mq4_strength: packet.mq4_strength,
+            status: packet.status || 'online',
+            is_live_hw: true,
+            last_update: 'Just now',
+          })
+        }
+      }
+    })
   } catch (e) {
     console.warn('[Socket.IO] Could not initialize:', e.message)
   }
   return _socket
 }
 
-// Auto-start socket when module loads in browser
+// Global Hardware Status Poller — continuously checks Master ESP32 Gateway status
+async function pollMasterGatewayHealth() {
+  try {
+    const res = await fetch('http://localhost:4000/api/sensor-data/system-status')
+    if (res.ok) {
+      const data = await res.json()
+      const isMasterOnline = data?.master?.status === 'ONLINE'
+      useStore.getState().setMasterGatewayStatus(isMasterOnline ? 'ONLINE' : 'OFFLINE', data?.master?.lastSeen)
+    } else {
+      useStore.getState().setMasterGatewayStatus('OFFLINE', null)
+    }
+  } catch {
+    useStore.getState().setMasterGatewayStatus('OFFLINE', null)
+  }
+}
+
+// Auto-start socket and gateway poller when module loads in browser
 if (typeof window !== 'undefined') {
   setTimeout(() => getSocket(), 500)
+  setTimeout(() => pollMasterGatewayHealth(), 800)
+  setInterval(() => pollMasterGatewayHealth(), 2500)
 }
 
 // ─── 5 Sensor Categories ──────────────────────────────────────────────────────
@@ -180,21 +243,22 @@ export const INITIAL_ESP32_NODES = [
     location: 'Sant Sarovar Dam, Sabarmati, Gandhinagar',
     latitude: 23.2385,
     longitude: 72.6710,
-    status: 'online',
+    status: 'offline',
+    is_live_hw: false,
     connectivity: 'COM7 Gateway (ESP-NOW)',
-    water_level_cm: 44.5,
-    soil_moisture: 65.2,
-    flow_rate_m3s: 1.4,
-    smoke_aqi: 32,
-    temperature_c: 28.2,
-    humidity_pct: 62,
-    gas_ppm: 2.1,
-    seismic_accel: 0.01,
+    water_level_cm: null,
+    soil_moisture: null,
+    flow_rate_m3s: null,
+    smoke_aqi: null,
+    temperature_c: null,
+    humidity_pct: null,
+    gas_ppm: null,
+    seismic_accel: null,
     flame_detected: false,
     local_siren: false,
-    risk_score: 28,
+    risk_score: 0,
     severity: 'advisory',
-    last_update: 'Just now',
+    last_update: 'Offline',
     battery_pct: 98,
     solar_charging: true,
     firmware_version: 'v2.4.2-edge',
@@ -211,21 +275,22 @@ export const INITIAL_ESP32_NODES = [
     location: 'Indroda Nature Park Perimeter, Gandhinagar',
     latitude: 23.1950,
     longitude: 72.6520,
-    status: 'online',
+    status: 'offline',
+    is_live_hw: false,
     connectivity: 'COM7 Gateway (ESP-NOW)',
-    water_level_cm: 18.0,
-    soil_moisture: 42.0,
-    flow_rate_m3s: 0.1,
-    smoke_aqi: 34,
-    temperature_c: 29.8,
-    humidity_pct: 57.5,
-    gas_ppm: 2.65,
-    seismic_accel: 0.01,
+    water_level_cm: null,
+    soil_moisture: null,
+    flow_rate_m3s: null,
+    smoke_aqi: null,
+    temperature_c: null,
+    humidity_pct: null,
+    gas_ppm: null,
+    seismic_accel: null,
     flame_detected: false,
     local_siren: false,
-    risk_score: 24,
+    risk_score: 0,
     severity: 'advisory',
-    last_update: 'Just now',
+    last_update: 'Offline',
     battery_pct: 95,
     solar_charging: true,
     firmware_version: 'v2.4.2-edge',
@@ -242,26 +307,27 @@ export const INITIAL_ESP32_NODES = [
     location: 'Narol-Vatva GIDC Industrial Corridor, Ahmedabad',
     latitude: 22.9734,
     longitude: 72.5898,
-    status: 'online',
+    status: 'offline',
+    is_live_hw: false,
     connectivity: 'COM7 Gateway (ESP-NOW)',
-    water_level_cm: 20.0,
-    soil_moisture: 45.0,
-    flow_rate_m3s: 0.1,
-    smoke_aqi: 54,
-    pm10: 72,
-    mq135_strength: 28.5,
+    water_level_cm: null,
+    soil_moisture: null,
+    flow_rate_m3s: null,
+    smoke_aqi: null,
+    pm10: null,
+    mq135_strength: null,
     mq135_status: 'NORMAL',
-    mq4_strength: 12.8,
+    mq4_strength: null,
     mq4_status: 'NORMAL',
-    temperature_c: 30.5,
-    humidity_pct: 52,
-    gas_ppm: 3.4,
-    seismic_accel: 0.01,
+    temperature_c: null,
+    humidity_pct: null,
+    gas_ppm: null,
+    seismic_accel: null,
     flame_detected: false,
     local_siren: false,
-    risk_score: 34,
+    risk_score: 0,
     severity: 'advisory',
-    last_update: 'Just now',
+    last_update: 'Offline',
     battery_pct: 92,
     solar_charging: true,
     firmware_version: 'v2.4.2-edge',
@@ -915,15 +981,16 @@ export const useStore = create((set, get) => ({
   recentReadings: [],       // Last 200 sensor readings for history/charts
   bridgeStatus: null,       // { status: 'connected'|'disconnected', port }
 
-  // Multi-Channel Live Telemetry History Buffer (for real-time Upper/Down, Delta, & Sparklines)
+  // Multi-Channel Live Telemetry History Buffer (populated ONLY by real physical hardware)
   telemetryHistory: {
-    water: [48.2, 47.6, 46.8, 45.9, 45.1, 44.5, 43.8, 43.2],
-    soil:  [61.2, 62.0, 62.8, 63.5, 64.2, 65.0, 65.8, 66.4],
-    temp:  [28.4, 28.7, 29.0, 29.3, 29.5, 29.8, 30.0, 30.3],
-    hum:   [60.0, 59.4, 58.8, 58.2, 57.8, 57.2, 56.7, 56.2],
-    co:    [1.95, 2.10, 2.25, 2.40, 2.55, 2.70, 2.85, 2.98],
-    aqi:   [42, 44, 46, 48, 51, 53, 56, 58],
-    nh3:   [22.0, 23.2, 24.5, 25.8, 27.0, 28.2, 29.5, 30.8],
+    water: [],
+    soil:  [],
+    temp:  [],
+    hum:   [],
+    co:    [],
+    aqi:   [],
+    nh3:   [],
+    flame: [],
   },
   lastSyncTime: 'Just now',
   surgeActive: false,
@@ -939,6 +1006,13 @@ export const useStore = create((set, get) => ({
   usbRawLogs: [],
   usbModalOpen: false,
 
+  masterGatewayStatus: 'OFFLINE', // 'ONLINE' | 'OFFLINE'
+  masterLastSeen: null,
+
+  setMasterGatewayStatus: (status, lastSeen = null) => set({
+    masterGatewayStatus: status,
+    masterLastSeen: lastSeen,
+  }),
   setSocketConnected: (connected) => set({ socketConnected: connected }),
   setBridgeStatus: (status) => set({ bridgeStatus: status }),
   setUsbConnected: (connected, portName = null, baudRate = 115200) => set({
@@ -1040,10 +1114,10 @@ export const useStore = create((set, get) => ({
       // 4. Add to time-series reading curves for History & AI Analysis
       const newReading = {
         time: timeStr,
-        water: nodeData.water_level_cm != null ? nodeData.water_level_cm : 45,
-        aqi: nodeData.smoke_aqi != null ? nodeData.smoke_aqi : 40,
-        temp: nodeData.temperature_c != null ? nodeData.temperature_c : 28.5,
-        gas: nodeData.gas_ppm != null ? nodeData.gas_ppm : 14,
+        water: nodeData.water_level_cm != null ? nodeData.water_level_cm : null,
+        aqi: nodeData.smoke_aqi != null ? nodeData.smoke_aqi : null,
+        temp: nodeData.temperature_c != null ? nodeData.temperature_c : null,
+        gas: nodeData.gas_ppm != null ? nodeData.gas_ppm : null,
         node_id: nodeData.node_id,
         location: nodeData.location,
       }
@@ -1072,16 +1146,17 @@ export const useStore = create((set, get) => ({
   },
 
   // ─── Autonomous Continuous Dynamic Telemetry Engine ────────────────────────
-  // Ticks every 1.5s to ensure dynamic physics and changing data across the website
+  // Ticks only during an explicit active simulation scenario drill.
+  // In normal operation, physical ESP32 hardware values are NEVER overridden by fake numbers.
   tickAutonomousEngine: () => {
     const s = get()
-    if (!s.streamActive) return
+    if (!s.streamActive || !s.activeScenario) return
 
     const now = new Date()
     const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}:${String(now.getSeconds()).padStart(2, '0')}`
 
-    // If physical hardware packets arrived within the last 3.5 seconds, don't override with simulated physics
-    const isPhysicalActive = (Date.now() - (s.lastPhysicalPacketTime || 0)) < 3500
+    // If real physical hardware packets arrived recently, never simulate
+    const isPhysicalActive = (Date.now() - (s.lastPhysicalPacketTime || 0)) < 30000
     if (isPhysicalActive) {
       set({ lastSyncTime: timeStr })
       return
@@ -1089,74 +1164,10 @@ export const useStore = create((set, get) => ({
 
     _dynamicCycle++
     const c = _dynamicCycle
-    const surge = s.surgeActive
 
-    // Compute realistic Brownian fluctuations & undulating wave dynamics
-    const waterBase = surge ? 26.0 : 44.0
-    const nextWater = parseFloat(Math.max(15, Math.min(95, waterBase + Math.sin(c * 0.45) * 5.2 + (Math.random() * 1.0 - 0.5))).toFixed(1))
-    const nextSoil  = parseFloat(Math.min(96, Math.max(30, 65.0 + Math.sin(c * 0.3) * 5.5 + (Math.random() * 0.8 - 0.4))).toFixed(1))
-    const tempBase  = surge ? 37.8 : 29.5
-    const nextTemp  = parseFloat((tempBase + Math.sin(c * 0.25) * 1.8 + (Math.random() * 0.4 - 0.2)).toFixed(1))
-    const nextHum   = parseFloat(Math.max(35, Math.min(85, 58.0 - Math.sin(c * 0.25) * 4 + (Math.random() * 0.8 - 0.4))).toFixed(1))
-    const coBase    = surge ? 7.9 : 2.5
-    const nextCO    = parseFloat(Math.max(0.5, coBase + Math.sin(c * 0.4) * 1.1 + (Math.random() * 0.3 - 0.15)).toFixed(2))
-    const aqiBase   = surge ? 118 : 52
-    const nextAqi   = Math.max(20, Math.min(220, Math.round(aqiBase + Math.sin(c * 0.35) * 13 + (Math.random() * 4 - 2))))
-    const nextNH3   = parseFloat(Math.max(10, Math.min(90, 30.0 + Math.sin(c * 0.3) * 7.5 + (Math.random() * 1.0 - 0.5))).toFixed(1))
-
-    const newH = {
-      water: [...s.telemetryHistory.water.slice(1), nextWater],
-      soil:  [...s.telemetryHistory.soil.slice(1), nextSoil],
-      temp:  [...s.telemetryHistory.temp.slice(1), nextTemp],
-      hum:   [...s.telemetryHistory.hum.slice(1), nextHum],
-      co:    [...s.telemetryHistory.co.slice(1), nextCO],
-      aqi:   [...s.telemetryHistory.aqi.slice(1), nextAqi],
-      nh3:   [...s.telemetryHistory.nh3.slice(1), nextNH3],
-    }
-
-    // Update the 3 ESP32 nodes dynamically
-    const updatedEsp = s.esp32Nodes.map((node) => {
-      const id = node.node_id
-      if (id === 'ESP32-FLOOD') {
-        return {
-          ...node,
-          water_level_cm: nextWater,
-          soil_moisture: nextSoil,
-          risk_score: nextWater < 30 ? 92 : nextWater < 50 ? 65 : 28,
-          severity: nextWater < 30 ? 'emergency' : nextWater < 50 ? 'warning' : 'advisory',
-          last_update: 'Just now',
-        }
-      }
-      if (id === 'ESP32-COTEMP') {
-        return {
-          ...node,
-          temperature_c: nextTemp,
-          humidity_pct: nextHum,
-          gas_ppm: nextCO,
-          flame_detected: surge || (c % 24 === 0),
-          risk_score: nextCO > 6 ? 85 : nextTemp > 35 ? 72 : 24,
-          severity: nextCO > 6 ? 'emergency' : nextTemp > 35 ? 'warning' : 'advisory',
-          last_update: 'Just now',
-        }
-      }
-      if (id === 'ESP32-POLLUTION') {
-        return {
-          ...node,
-          smoke_aqi: nextAqi,
-          pm10: Math.round(nextAqi * 1.32),
-          mq135_strength: nextNH3,
-          mq4_strength: parseFloat((nextNH3 * 0.45).toFixed(1)),
-          risk_score: nextAqi > 100 ? 86 : nextAqi > 60 ? 60 : 34,
-          severity: nextAqi > 100 ? 'emergency' : nextAqi > 60 ? 'warning' : 'advisory',
-          last_update: 'Just now',
-        }
-      }
-      return node
-    })
-
-    // Also nudge 4-5 nodes across the fleet so the entire dashboard & fleet pages move in real time
+    // Only nudge simulated regional fleet nodes for demo scenario, NEVER physical esp32Nodes
     const updatedFleet = s.nodes.map((n, idx) => {
-      if (idx % 3 === (c % 3)) {
+      if (idx % 3 === (c % 3) && !n.node_id?.startsWith('ESP32-')) {
         const noise = (Math.random() * 0.8 - 0.4)
         return {
           ...n,
@@ -1169,21 +1180,8 @@ export const useStore = create((set, get) => ({
       return n
     })
 
-    const newReading = {
-      time: timeStr,
-      water: nextWater,
-      aqi: nextAqi,
-      temp: nextTemp,
-      gas: nextCO,
-      node_id: 'ESP32-GATEWAY',
-      location: 'Gujarat Sensor Grid',
-    }
-
     set({
-      telemetryHistory: newH,
-      esp32Nodes: updatedEsp,
       nodes: updatedFleet,
-      recentReadings: [newReading, ...s.recentReadings].slice(0, 200),
       lastSyncTime: timeStr,
     })
   },
@@ -1551,7 +1549,9 @@ export const useThemeStore = create((set) => ({
 // statistics actively fluctuate across the entire website in real-time.
 if (typeof window !== 'undefined') {
   setInterval(() => {
-    useStore.getState().tickAutonomousEngine()
+    if (useStore.getState().activeScenario) {
+      useStore.getState().tickAutonomousEngine()
+    }
   }, 1500)
 }
 

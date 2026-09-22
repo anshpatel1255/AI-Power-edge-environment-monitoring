@@ -7,8 +7,17 @@ export default function ScenarioDrawer({ isOpen, onClose }) {
   const triggerScenario = useStore((s) => s.triggerScenario)
   const hardwareMode = useStore((s) => s.hardwareMode)
   const setHardwareMode = useStore((s) => s.setHardwareMode)
+  const storeScenarioOpen = useStore((s) => s.scenarioDrawerOpen)
+  const setStoreScenarioOpen = useStore((s) => s.setScenarioDrawerOpen)
 
-  if (!isOpen) return null
+  const isVisible = isOpen || storeScenarioOpen
+
+  if (!isVisible) return null
+
+  const handleClose = () => {
+    if (onClose) onClose()
+    setStoreScenarioOpen(false)
+  }
 
   const SCENARIOS = [
     {
@@ -47,7 +56,7 @@ export default function ScenarioDrawer({ isOpen, onClose }) {
   ]
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-slate-950/60 backdrop-blur-md animate-fade-in font-sans">
+    <div className="fixed inset-0 z-[99999] flex justify-end bg-slate-950/60 backdrop-blur-md animate-fade-in font-sans">
       <div className="bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 w-full max-w-md h-full shadow-2xl flex flex-col justify-between overflow-hidden">
         {/* Header */}
         <div className="p-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between bg-slate-50/80 dark:bg-slate-800/80">
@@ -60,7 +69,7 @@ export default function ScenarioDrawer({ isOpen, onClose }) {
           </div>
           <button
             type="button"
-            onClick={onClose}
+            onClick={handleClose}
             className="w-8 h-8 flex items-center justify-center rounded-full text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors"
           >
             ✕
@@ -161,7 +170,7 @@ export default function ScenarioDrawer({ isOpen, onClose }) {
             </button>
             <button
               type="button"
-              onClick={onClose}
+              onClick={handleClose}
               className="px-5 bg-slate-900 hover:bg-slate-800 dark:bg-slate-700 dark:hover:bg-slate-600 text-white rounded-full text-xs font-bold transition-colors shadow-xs"
             >
               Close

@@ -76,6 +76,8 @@ function WaveChart({ points = [], color = '#2563EB', gradientId = 'waveGrad' }) 
 export default function LiveTelemetryStreamSection() {
   const esp32Nodes       = useStore((s) => s.esp32Nodes)
   const usbConnected     = useStore((s) => s.usbConnected)
+  const masterGatewayStatus = useStore((s) => s.masterGatewayStatus)
+  const isMasterOnline   = masterGatewayStatus === 'ONLINE'
   const usbPortName      = useStore((s) => s.usbPortName)
   const telemetryHistory = useStore((s) => s.telemetryHistory)
   const lastSyncTime     = useStore((s) => s.lastSyncTime)
@@ -157,7 +159,7 @@ export default function LiveTelemetryStreamSection() {
         {/* Right: Controls & Stream Status */}
         <div className="flex items-center gap-2.5 flex-wrap">
           <span className="text-xs text-slate-500 font-medium mr-1">
-            Sampling every 1.5 s
+            {isMasterOnline ? 'Sampling every 1.5 s' : 'Awaiting ESP32 Gateway (Offline)'}
           </span>
 
           {/* Simulate Surge Button */}
@@ -175,11 +177,18 @@ export default function LiveTelemetryStreamSection() {
             <span>Simulate surge</span>
           </button>
 
-          {/* Live stream active badge */}
-          <span className="bg-emerald-50 text-emerald-700 border border-emerald-200/90 text-xs font-semibold px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-2xs">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block animate-pulse" />
-            <span>Live stream active</span>
-          </span>
+          {/* Live stream status badge */}
+          {isMasterOnline ? (
+            <span className="bg-emerald-50 text-emerald-700 border border-emerald-200/90 text-xs font-semibold px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-2xs">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 inline-block animate-pulse" />
+              <span>Live stream active</span>
+            </span>
+          ) : (
+            <span className="bg-rose-50 text-rose-700 border border-rose-200/90 text-xs font-semibold px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-2xs">
+              <span className="w-1.5 h-1.5 rounded-full bg-rose-500 inline-block" />
+              <span>Master Gateway Offline</span>
+            </span>
+          )}
 
           {/* COM7 port badge */}
           <button
