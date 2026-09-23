@@ -4,34 +4,73 @@ import { useNavigate, Link } from 'react-router-dom'
 import { useAuthStore } from '../store/useStore'
 
 const ROLES = [
-  { value: 'GSDMA Officer',        label: 'GSDMA State Disaster Officer' },
-  { value: 'Municipal Officer',    label: 'Municipal Environmental Cell (AMC/SMC)' },
-  { value: 'Fire Dept Officer',    label: 'Fire & Emergency Services (101)' },
-  { value: 'Police Control',       label: 'Gujarat Police Control (100)' },
-  { value: 'Super Admin',          label: 'Command Super Admin' },
+  {
+    value: 'GSDMA Officer',
+    label: 'GSDMA State Disaster Officer',
+    email: 'officer.patel@gsdma.gov.in',
+    name: 'Officer K. Patel',
+    agency: 'Gujarat State Disaster Management Authority',
+  },
+  {
+    value: 'Municipal Officer',
+    label: 'Municipal Environmental Cell (AMC/SMC)',
+    email: 'env.officer@amc.gujarat.gov.in',
+    name: 'Inspector R. Joshi',
+    agency: 'Ahmedabad Municipal Environmental Cell',
+  },
+  {
+    value: 'Fire Dept Officer',
+    label: 'Fire & Emergency Services (101)',
+    email: 'fire.control101@gujarat.gov.in',
+    name: 'Chief Officer M. Desai',
+    agency: 'State Fire & Hazmat Emergency Response',
+  },
+  {
+    value: 'Police Control',
+    label: 'Gujarat Police Control (100)',
+    email: 'dispatch100@gujaratpolice.gov.in',
+    name: 'Control Officer V. Solanki',
+    agency: 'Gujarat State Emergency Police Control',
+  },
+  {
+    value: 'Super Admin',
+    label: 'Command Super Admin',
+    email: 'admin.command@aegisnet.gov.in',
+    name: 'Root Administrator',
+    agency: 'AegisNet Central Command Super Admin',
+  },
 ]
 
 export default function Login() {
   const navigate = useNavigate()
   const setAuth   = useAuthStore((s) => s.setAuth)
 
-  const [email,        setEmail]        = useState('officer.patel@gsdma.gov.in')
+  const [selectedRole, setSelectedRole] = useState(ROLES[0].value)
+  const [email,        setEmail]        = useState(ROLES[0].email)
   const [password,     setPassword]     = useState('demo1234')
-  const [selectedRole, setSelectedRole] = useState('GSDMA Officer')
   const [showPass,     setShowPass]     = useState(false)
   const [loading,      setLoading]      = useState(false)
+
+  const handleRoleChange = (roleValue) => {
+    setSelectedRole(roleValue)
+    const roleConfig = ROLES.find((r) => r.value === roleValue)
+    if (roleConfig?.email) {
+      setEmail(roleConfig.email)
+    }
+  }
 
   const handleLogin = (e) => {
     e.preventDefault()
     setLoading(true)
+    const roleConfig = ROLES.find((r) => r.value === selectedRole) || ROLES[0]
     setTimeout(() => {
       setAuth(
         {
           id: 1,
-          name: 'Officer K. Patel',
+          name: roleConfig.name || 'Officer K. Patel',
           email,
           role: selectedRole,
-          agency: 'Gujarat State Disaster Management Authority',
+          agency: roleConfig.agency || 'Gujarat State Disaster Management Authority',
         },
         'demo-jwt-token'
       )
@@ -179,7 +218,7 @@ export default function Login() {
                 <div className="relative">
                   <select
                     value={selectedRole}
-                    onChange={(e) => setSelectedRole(e.target.value)}
+                    onChange={(e) => handleRoleChange(e.target.value)}
                     className="w-full bg-white/[0.09] border border-white/20 hover:border-white/30 rounded-2xl px-4 py-2.5 text-xs text-white font-semibold focus:bg-slate-900/95 focus:outline-none focus:border-cyan-400 focus:ring-4 focus:ring-cyan-500/20 transition-all appearance-none cursor-pointer shadow-inner backdrop-blur-md"
                   >
                     {ROLES.map((r) => (
