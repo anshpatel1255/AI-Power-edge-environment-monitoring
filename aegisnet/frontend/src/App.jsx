@@ -5,6 +5,8 @@ import clsx from 'clsx'
 import ErrorBoundary from './components/common/ErrorBoundary'
 import TopHeader from './components/layout/TopHeader'
 import Footer from './components/layout/Footer'
+import PublicHeader from './components/layout/PublicHeader'
+import PublicFooter from './components/layout/PublicFooter'
 
 // Overlays
 import CommandPalette from './components/overlays/CommandPalette'
@@ -28,6 +30,14 @@ import Login from './pages/Login'
 import LandingPage from './pages/LandingPage'
 import TelemetryPage from './pages/TelemetryPage'
 import { useAuthStore, useThemeStore } from './store/useStore'
+
+function ProtectedRoute({ children }) {
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />
+  }
+  return children
+}
 
 function AppLayout({ children }) {
   const location = useLocation()
@@ -67,27 +77,37 @@ function AppLayout({ children }) {
       'bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(37,99,235,0.07),rgba(255,255,255,0))]',
       isMapRoute ? 'h-screen overflow-hidden' : 'min-h-screen'
     )}>
-      {/* Complete Top Navbar — Visible on all pages including Map & Public Portal */}
-      <TopHeader
-        onOpenCommandPalette={() => setCmdOpen(true)}
-        onOpenScenarioDrawer={() => setScenarioOpen(true)}
-      />
-
+      {/* Top Navbar — Dedicated citizen header on /public, full command header for officers */}
+      {isPublicRoute ? (
+        <PublicHeader />
+      ) : (
+        <TopHeader
+          onOpenCommandPalette={() => setCmdOpen(true)}
+          onOpenScenarioDrawer={() => setScenarioOpen(true)}
+        />
+      )}
 
       {/* Full Width Main Content */}
       <main className={clsx('flex-1 w-full', isMapRoute && 'overflow-hidden flex flex-col')}>
         {children}
       </main>
 
-
       {/* Footer on non-map screens */}
-      {!isMapRoute && <Footer />}
+      {isPublicRoute ? (
+        <PublicFooter />
+      ) : (
+        !isMapRoute && <Footer />
+      )}
 
-      {/* Global Overlays */}
-      <CommandPalette isOpen={cmdOpen} onClose={() => setCmdOpen(false)} />
-      <ScenarioDrawer isOpen={scenarioOpen} onClose={() => setScenarioOpen(false)} />
-      <EmergencyModal />
-      <UsbSerialModal />
+      {/* Global Overlays — internal command center only, disabled on public citizen portal */}
+      {!isPublicRoute && (
+        <>
+          <CommandPalette isOpen={cmdOpen} onClose={() => setCmdOpen(false)} />
+          <ScenarioDrawer isOpen={scenarioOpen} onClose={() => setScenarioOpen(false)} />
+          <EmergencyModal />
+          <UsbSerialModal />
+        </>
+      )}
     </div>
   )
 }
@@ -108,20 +128,25 @@ export default function App() {
               }
             />
             <Route path="/landing" element={<LandingPage />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/situation" element={<Dashboard />} />
-            <Route path="/aegis" element={<AegisDashboard />} />
-            <Route path="/map" element={<MapPage />} />
-            <Route path="/history" element={<HistoryPage />} />
-            <Route path="/analysis" element={<AnalysisPage />} />
-            <Route path="/alerts" element={<AlertsPage />} />
-            <Route path="/console" element={<CommandConsole />} />
-            <Route path="/public" element={<PublicPortal />} />
-            <Route path="/telemetry" element={<TelemetryPage />} />
-            <Route path="/fleet" element={<FleetPage />} />
-            <Route path="/settings" element={<SettingsPage />} />
-            <Route path="/nodes/:id" element={<NodeDetail />} />
             <Route path="/login" element={<Login />} />
+            
+            {/* Public Portal — accessible to citizens and officers */}
+            <Route path="/public" element={<PublicPortal />} />
+
+            {/* Protected Internal Agency Routes — Officers only */}
+            <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+            <Route path="/situation" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+            <Route path="/aegis" element={<ProtectedRoute><AegisDashboard /></ProtectedRoute>} />
+            <Route path="/map" element={<ProtectedRoute><MapPage /></ProtectedRoute>} />
+            <Route path="/history" element={<ProtectedRoute><HistoryPage /></ProtectedRoute>} />
+            <Route path="/analysis" element={<ProtectedRoute><AnalysisPage /></ProtectedRoute>} />
+            <Route path="/alerts" element={<ProtectedRoute><AlertsPage /></ProtectedRoute>} />
+            <Route path="/console" element={<ProtectedRoute><CommandConsole /></ProtectedRoute>} />
+            <Route path="/telemetry" element={<ProtectedRoute><TelemetryPage /></ProtectedRoute>} />
+            <Route path="/fleet" element={<ProtectedRoute><FleetPage /></ProtectedRoute>} />
+            <Route path="/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
+            <Route path="/nodes/:id" element={<ProtectedRoute><NodeDetail /></ProtectedRoute>} />
+
             <Route
               path="*"
               element={
