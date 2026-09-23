@@ -205,7 +205,7 @@ function DotMatrix({ online, total }) {
 
 // ─── SENSOR STATUS HELPER ─────────────────────────────────────────────────────
 function sensorStatus(val, thresholds) {
-  if (val == null) return { label: '–', cls: 'bg-slate-100 text-slate-500' }
+  if (val == null || isNaN(val)) return { label: '–', cls: 'bg-slate-100 text-slate-500' }
   if (val >= (thresholds.danger ?? Infinity))
     return { label: 'Critical', cls: 'bg-red-50 text-red-600 border border-red-200/60' }
   if (val >= (thresholds.warn ?? Infinity))
@@ -231,21 +231,25 @@ export default function Dashboard() {
   const cotempNode    = esp32Nodes.find((n) => n.node_id?.includes('COTEMP'))
   const pollutionNode = esp32Nodes.find((n) => n.node_id?.includes('POLLUTION'))
 
-  // ── Sensor values with sensible fallbacks ────────────────────────────────
-  const waterVal = floodNode?.water_level_cm   != null ? floodNode.water_level_cm.toFixed(1)   : '47.8'
-  const soilVal  = floodNode?.soil_moisture    != null ? floodNode.soil_moisture.toFixed(1)    : '68.6'
-  const coVal    = cotempNode?.gas_ppm         != null ? cotempNode.gas_ppm.toFixed(2)         : '1.23'
-  const tempVal  = cotempNode?.temperature_c   != null ? cotempNode.temperature_c.toFixed(1)   : '27.7'
-  const humVal   = cotempNode?.humidity_pct    != null ? cotempNode.humidity_pct.toFixed(1)    : '62.2'
-  const pm25Val  = pollutionNode?.smoke_aqi    != null ? pollutionNode.smoke_aqi               : '59'
-  const pm10Val  = pollutionNode?.pm10         != null ? pollutionNode.pm10                    : '78'
-  const nh3Val   = pollutionNode?.mq135_strength != null ? pollutionNode.mq135_strength.toFixed(1) : '35.2'
-  const ch4Val   = pollutionNode?.mq4_strength   != null ? pollutionNode.mq4_strength.toFixed(1)   : '15.6'
+  const isFloodLive     = Boolean(floodNode?.is_live_hw && floodNode.water_level_cm != null)
+  const isCotempLive    = Boolean(cotempNode?.is_live_hw && cotempNode.temperature_c != null)
+  const isPollutionLive = Boolean(pollutionNode?.is_live_hw && pollutionNode.smoke_aqi != null)
+
+  // ── Sensor values strictly from physical hardware without mock fallbacks ──
+  const waterVal = isFloodLive ? floodNode.water_level_cm.toFixed(1) : '--'
+  const soilVal  = isFloodLive && floodNode.soil_moisture != null ? floodNode.soil_moisture.toFixed(1) : '--'
+  const coVal    = isCotempLive && cotempNode.gas_ppm != null ? cotempNode.gas_ppm.toFixed(2) : '--'
+  const tempVal  = isCotempLive ? cotempNode.temperature_c.toFixed(1) : '--'
+  const humVal   = isCotempLive && cotempNode.humidity_pct != null ? cotempNode.humidity_pct.toFixed(1) : '--'
+  const pm25Val  = isPollutionLive ? String(pollutionNode.smoke_aqi) : '--'
+  const pm10Val  = isPollutionLive && pollutionNode.pm10 != null ? String(pollutionNode.pm10) : '--'
+  const nh3Val   = isPollutionLive && pollutionNode.mq135_strength != null ? pollutionNode.mq135_strength.toFixed(1) : '--'
+  const ch4Val   = isPollutionLive && pollutionNode.mq4_strength != null ? pollutionNode.mq4_strength.toFixed(1) : '--'
 
   // ── Node risk scores (0–100) ───────────────────────────────────────────
-  const floodRisk     = floodNode?.risk_score     ?? 0
-  const cotempRisk    = cotempNode?.risk_score    ?? 0
-  const pollutionRisk = pollutionNode?.risk_score ?? 43
+  const floodRisk     = isFloodLive ? (floodNode.risk_score ?? 0) : 0
+  const cotempRisk    = isCotempLive ? (cotempNode.risk_score ?? 0) : 0
+  const pollutionRisk = isPollutionLive ? (pollutionNode.risk_score ?? 0) : 0
 
   // ── Dynamic hero card values ──────────────────────────────────────────────
   const activeAlerts       = alerts.filter((a) => !a.acknowledged)
@@ -680,10 +684,10 @@ export default function Dashboard() {
                       <span className="bg-blue-50 text-blue-600 border border-blue-200/80 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full">ESP32-FLOOD</span>
                       <span className={clsx(
                         'text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 border',
-                        floodNode ? 'bg-emerald-50 text-emerald-700 border-emerald-200/80' : 'bg-slate-100 text-slate-500 border-slate-200'
+                        isFloodLive ? 'bg-emerald-50 text-emerald-700 border-emerald-200/80' : 'bg-slate-100 text-slate-500 border-slate-200'
                       )}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${floodNode ? 'bg-emerald-500' : 'bg-slate-400'}`} />
-                        {floodNode ? 'Live' : 'Simulated'}
+                        <span className={`w-1.5 h-1.5 rounded-full ${isFloodLive ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
+                        {isFloodLive ? 'Live' : 'Offline'}
                       </span>
                     </div>
                   </div>
@@ -709,7 +713,7 @@ export default function Dashboard() {
               </div>
             </div>
             <div className="text-[11px] text-slate-400 font-mono pt-3 border-t border-slate-100">
-              {floodNode ? `Last packet: ${new Date(floodNode.last_seen || Date.now()).toLocaleTimeString()}` : 'Simulated — connect ESP32 for live data'}
+              {isFloodLive ? `Last packet: ${new Date(floodNode.last_seen || Date.now()).toLocaleTimeString()}` : 'Awaiting physical ESP32 on USB COM port'}
             </div>
           </div>
 
@@ -725,10 +729,10 @@ export default function Dashboard() {
                       <span className="bg-blue-50 text-blue-600 border border-blue-200/80 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full">ESP32-COTEMP</span>
                       <span className={clsx(
                         'text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 border',
-                        cotempNode ? 'bg-emerald-50 text-emerald-700 border-emerald-200/80' : 'bg-slate-100 text-slate-500 border-slate-200'
+                        isCotempLive ? 'bg-emerald-50 text-emerald-700 border-emerald-200/80' : 'bg-slate-100 text-slate-500 border-slate-200'
                       )}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${cotempNode ? 'bg-emerald-500' : 'bg-slate-400'}`} />
-                        {cotempNode ? 'Live' : 'Simulated'}
+                        <span className={`w-1.5 h-1.5 rounded-full ${isCotempLive ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
+                        {isCotempLive ? 'Live' : 'Offline'}
                       </span>
                     </div>
                   </div>
@@ -755,7 +759,7 @@ export default function Dashboard() {
               </div>
             </div>
             <div className="text-[11px] text-slate-400 font-mono pt-3 border-t border-slate-100">
-              {cotempNode ? `Last packet: ${new Date(cotempNode.last_seen || Date.now()).toLocaleTimeString()}` : 'Simulated — connect ESP32 for live data'}
+              {isCotempLive ? `Last packet: ${new Date(cotempNode.last_seen || Date.now()).toLocaleTimeString()}` : 'Awaiting physical ESP32 on USB COM port'}
             </div>
           </div>
 
@@ -771,10 +775,10 @@ export default function Dashboard() {
                       <span className="bg-blue-50 text-blue-600 border border-blue-200/80 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full">ESP32-POLLUTION</span>
                       <span className={clsx(
                         'text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 border',
-                        pollutionNode ? 'bg-emerald-50 text-emerald-700 border-emerald-200/80' : 'bg-slate-100 text-slate-500 border-slate-200'
+                        isPollutionLive ? 'bg-emerald-50 text-emerald-700 border-emerald-200/80' : 'bg-slate-100 text-slate-500 border-slate-200'
                       )}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${pollutionNode ? 'bg-emerald-500' : 'bg-slate-400'}`} />
-                        {pollutionNode ? 'Live' : 'Simulated'}
+                        <span className={`w-1.5 h-1.5 rounded-full ${isPollutionLive ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
+                        {isPollutionLive ? 'Live' : 'Offline'}
                       </span>
                     </div>
                   </div>
@@ -802,7 +806,7 @@ export default function Dashboard() {
               </div>
             </div>
             <div className="text-[11px] text-slate-400 font-mono pt-3 border-t border-slate-100">
-              {pollutionNode ? `Last packet: ${new Date(pollutionNode.last_seen || Date.now()).toLocaleTimeString()}` : 'Simulated — connect ESP32 for live data'}
+              {isPollutionLive ? `Last packet: ${new Date(pollutionNode.last_seen || Date.now()).toLocaleTimeString()}` : 'Awaiting physical ESP32 on USB COM port'}
             </div>
           </div>
 

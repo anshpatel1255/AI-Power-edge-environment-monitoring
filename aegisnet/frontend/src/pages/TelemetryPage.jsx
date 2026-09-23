@@ -700,6 +700,8 @@ export default function TelemetryPage() {
 
   const [connectingHw, setConnectingHw] = useState(false)
   const [selectedBaud, setSelectedBaud] = useState(usbBaudRate || 115200)
+  const [checklistOpen, setChecklistOpen] = useState(true)
+  const [lastAttempt, setLastAttempt] = useState(null)
 
   // Helper to extract initial values from store nodes
   const getInitialMetrics = useCallback(() => {
@@ -1333,274 +1335,551 @@ export default function TelemetryPage() {
       </svg>
 
       <main className="page" id="top">
-        {/* ─── LIVE ESP32 HARDWARE STATUS & CONNECTION BAR ───────────────── */}
+        {/* ─── HARDWARE · GATEWAY CONNECTION (EXACT DESIGN MATCH) ─────────────── */}
+        <div style={{ marginBottom: '8px' }}>
+          <span style={{ fontSize: '11px', fontFamily: 'var(--mono)', fontWeight: 800, letterSpacing: '0.12em', color: '#94a3b8', textTransform: 'uppercase' }}>
+            HARDWARE · GATEWAY CONNECTION
+          </span>
+        </div>
+
         <div style={{
-          background: masterOnline
-            ? 'linear-gradient(135deg, rgba(22, 163, 74, 0.08) 0%, rgba(31, 107, 245, 0.06) 100%)'
-            : 'linear-gradient(135deg, #ffffff 0%, #fff5f5 100%)',
-          border: masterOnline ? '1.5px solid #86efac' : '1.5px solid #fecaca',
-          borderRadius: '20px',
-          padding: '18px 24px',
-          marginBottom: '24px',
+          background: masterOnline ? '#f0fdf4' : '#fff5f5',
+          border: masterOnline ? '1.5px solid #bbf7d0' : '1.5px solid #fecaca',
+          borderRadius: '26px',
+          padding: '24px 28px',
+          marginBottom: '28px',
+          boxShadow: masterOnline ? '0 4px 20px -2px rgba(34, 197, 94, 0.12)' : '0 4px 20px -2px rgba(244, 63, 94, 0.08)',
           display: 'flex',
           flexDirection: 'column',
-          gap: '14px',
-          boxShadow: masterOnline ? '0 6px 24px -4px rgba(34, 197, 94, 0.2)' : '0 2px 12px rgba(239, 68, 68, 0.06)',
+          gap: '18px'
         }}>
-          {/* Top Row: Info & Main Action Buttons */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '16px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
-              <div style={{
-                width: '46px',
-                height: '46px',
-                borderRadius: '14px',
-                background: masterOnline ? 'linear-gradient(135deg, #16a34a, #22c55e)' : 'linear-gradient(135deg, #ef4444, #dc2626)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: '#ffffff',
-                fontSize: '24px',
-                boxShadow: masterOnline ? '0 0 16px rgba(34, 197, 94, 0.45)' : '0 4px 10px rgba(239, 68, 68, 0.2)',
-                flexShrink: 0
-              }}>
-                ⚡
-              </div>
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                  <span style={{ fontWeight: 800, fontSize: '15.5px', color: '#0f172a' }}>
-                    {masterOnline ? 'Master ESP32 Gateway: ONLINE' : 'Master ESP32 Gateway: OFFLINE'}
-                  </span>
-                  <span style={{
-                    fontSize: '11px',
-                    fontWeight: 700,
-                    padding: '3px 10px',
-                    borderRadius: '999px',
-                    background: masterOnline ? '#dcfce7' : '#fee2e2',
-                    color: masterOnline ? '#15803d' : '#991b1b',
-                    border: masterOnline ? '1px solid #bbf7d0' : '1px solid #fecaca',
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px'
-                  }}>
-                    <span style={{
-                      width: '7px',
-                      height: '7px',
-                      borderRadius: '50%',
-                      background: masterOnline ? '#22c55e' : '#ef4444',
-                      display: 'inline-block'
-                    }} className={masterOnline ? 'pulse' : ''} />
-                    {masterOnline ? 'ONLINE · LIVE TELEMETRY STREAM' : '🔴 OFFLINE · AWAITING HARDWARE'}
-                  </span>
-                </div>
-                <div style={{ fontSize: '12.5px', color: '#475569', marginTop: '4px', fontFamily: 'var(--mono)' }}>
-                  {masterOnline ? (
-                    <span>
-                      Port / Gateway: <strong style={{ color: '#0f172a' }}>ESP32 Master</strong> · Status: <strong style={{ color: '#16a34a' }}>ONLINE</strong> · Rx: <strong>{usbPacketCount} packets</strong> ({usbPacketsPerSec} pkt/s) · Active Sensors: <strong>{activeSensorsCount} / {Object.keys(metricsDefMap).length} Live</strong>
-                    </span>
-                  ) : (
-                    <span style={{ color: '#dc2626', fontWeight: 600 }}>
-                      Master ESP32 is OFFLINE. Connect physical Master ESP32 via USB COM port or start firmware. No fake or simulated values are shown.
-                    </span>
-                  )}
-                </div>
-              </div>
+          {/* Top Row: Squircle, Title, Status Badge, Subtext */}
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '16px', flexWrap: 'wrap' }}>
+            {/* Left Squircle */}
+            <div style={{
+              width: '48px',
+              height: '48px',
+              borderRadius: '16px',
+              background: masterOnline ? 'linear-gradient(135deg, #10b981, #059669)' : 'linear-gradient(135deg, #f43f5e, #dc2626)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#ffffff',
+              fontSize: '22px',
+              boxShadow: masterOnline ? '0 4px 14px rgba(16, 185, 129, 0.35)' : '0 4px 14px rgba(244, 63, 94, 0.3)',
+              flexShrink: 0
+            }}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+              </svg>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-              {/* Baud Rate Selector */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ fontSize: '11.5px', fontWeight: 700, color: '#64748b' }}>Baud:</span>
-                <select
-                  value={selectedBaud}
-                  onChange={(e) => {
-                    const b = Number(e.target.value)
-                    setSelectedBaud(b)
-                    if (usbConnected) handleSwitchBaud(b)
-                  }}
-                  style={{
-                    padding: '7px 10px',
-                    borderRadius: '9px',
-                    border: '1.5px solid #cbd5e1',
-                    background: '#ffffff',
-                    fontSize: '12px',
-                    fontWeight: 700,
-                    fontFamily: 'var(--mono)',
-                    color: '#0f172a',
-                    cursor: 'pointer'
-                  }}
-                >
-                  <option value={115200}>115200 Baud</option>
-                  <option value={9600}>9600 Baud</option>
-                  <option value={57600}>57600 Baud</option>
-                  <option value={38400}>38400 Baud</option>
-                </select>
-              </div>
-
-              {/* Check Gateway Status Button */}
-              <button
-                type="button"
-                onClick={handleCheckGateway}
-                style={{
-                  padding: '8px 16px',
-                  borderRadius: '10px',
-                  background: masterOnline ? 'linear-gradient(135deg, #16a34a 0%, #22c55e 100%)' : '#ffffff',
-                  color: masterOnline ? '#ffffff' : '#334155',
-                  fontSize: '12px',
-                  fontWeight: 700,
-                  border: '1.5px solid #cbd5e1',
+            {/* Title & Badge */}
+            <div style={{ flex: 1, minWidth: '260px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                <h2 style={{ fontSize: '18.5px', fontWeight: 900, color: '#0f172a', margin: 0, letterSpacing: '-0.02em' }}>
+                  Master ESP32 Gateway
+                </h2>
+                <span style={{
                   display: 'inline-flex',
                   alignItems: 'center',
                   gap: '6px',
-                  cursor: 'pointer',
-                  boxShadow: masterOnline ? '0 2px 10px rgba(34, 197, 94, 0.35)' : '0 1px 4px rgba(0,0,0,0.05)'
-                }}
-              >
-                <span>🔄</span>
-                <span>Check Gateway Status</span>
-              </button>
+                  padding: '3px 12px',
+                  borderRadius: '999px',
+                  background: '#ffffff',
+                  border: masterOnline ? '1.5px solid #86efac' : '1.5px solid #fecaca',
+                  color: masterOnline ? '#15803d' : '#e11d48',
+                  fontSize: '11px',
+                  fontFamily: 'var(--mono)',
+                  fontWeight: 800,
+                  letterSpacing: '0.04em',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.03)'
+                }}>
+                  <span style={{
+                    width: '7px',
+                    height: '7px',
+                    borderRadius: '50%',
+                    background: masterOnline ? '#22c55e' : '#f43f5e',
+                    display: 'inline-block'
+                  }} className={masterOnline ? 'pulse' : ''} />
+                  {masterOnline ? 'ONLINE · HARDWARE STREAMING' : 'OFFLINE · AWAITING HARDWARE'}
+                </span>
+              </div>
 
-              {usbConnected ? (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => setUsbModalOpen(true)}
-                    style={{
-                      padding: '8px 14px',
-                      borderRadius: '10px',
-                      background: '#ffffff',
-                      border: '1.5px solid #cbd5e1',
-                      fontSize: '12px',
-                      fontWeight: 700,
-                      color: '#1e293b',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    <span>&gt;_ Live Terminal</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleDisconnectUsb}
-                    style={{
-                      padding: '8px 14px',
-                      borderRadius: '10px',
-                      background: '#fee2e2',
-                      border: '1.5px solid #fecaca',
-                      fontSize: '12px',
-                      fontWeight: 700,
-                      color: '#b91c1c',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    Disconnect
-                  </button>
-                </>
-              ) : (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => handleConnectUsb(selectedBaud)}
-                    disabled={connectingHw}
-                    style={{
-                      padding: '10px 20px',
-                      borderRadius: '12px',
-                      background: 'linear-gradient(135deg, #1f6bf5 0%, #12b8d8 100%)',
-                      color: '#ffffff',
-                      fontSize: '13px',
-                      fontWeight: 700,
-                      border: 'none',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: '8px',
-                      cursor: 'pointer',
-                      boxShadow: '0 4px 14px rgba(31, 107, 245, 0.35)',
-                      transition: 'all 0.2s ease'
-                    }}
-                  >
-                    <span style={{ fontSize: '15px' }}>⚡</span>
-                    <span>{connectingHw ? 'Opening Port...' : 'Connect ESP32 (USB COM Port)'}</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setUsbModalOpen(true)}
-                    style={{
-                      padding: '10px 14px',
-                      borderRadius: '12px',
-                      background: '#ffffff',
-                      border: '1.5px solid #cbd5e1',
-                      fontSize: '12px',
-                      fontWeight: 700,
-                      color: '#334155',
-                      cursor: 'pointer'
-                    }}
-                  >
-                    Settings
-                  </button>
-                </>
-              )}
+              <p style={{ fontSize: '13px', color: '#475569', marginTop: '6px', marginBottom: 0, lineHeight: 1.55 }}>
+                {masterOnline ? (
+                  <>
+                    Gateway connected and synchronized. <strong style={{ color: '#0f172a' }}>Streaming real physical sensor data</strong> — Master ESP32 forwarding ESP-NOW packets from all field nodes over USB COM.
+                  </>
+                ) : (
+                  <>
+                    No gateway is connected. <strong style={{ color: '#0f172a' }}>Nothing on this dashboard is simulated</strong> — plug in the physical Master ESP32 over USB and connect below to start streaming live sensor data.
+                  </>
+                )}
+              </p>
             </div>
           </div>
 
-          {/* Warning Banner if Port is open but 0 packets arrived */}
-          {usbConnected && usbPacketCount === 0 && (
+          {/* Middle Diagram Box: Topology */}
+          <div style={{
+            background: '#ffffff',
+            border: masterOnline ? '1.5px solid #dcfce7' : '1.5px solid #ffe4e6',
+            borderRadius: '18px',
+            padding: '24px 20px',
+            boxShadow: '0 1px 4px rgba(0,0,0,0.02)'
+          }}>
             <div style={{
-              width: '100%',
-              padding: '10px 14px',
-              background: '#fffbeb',
-              border: '1px solid #fde68a',
-              borderRadius: '12px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
-              flexWrap: 'wrap',
-              gap: '10px',
-              fontSize: '12px',
-              color: '#92400e'
+              maxWidth: '680px',
+              margin: '0 auto',
+              position: 'relative',
+              flexWrap: 'nowrap'
             }}>
-              <div>
-                <strong>⚠ Port open, but 0 packets received.</strong>
-                <span style={{ marginLeft: '6px' }}>
-                  If your ESP32 Arduino code has <code>Serial.begin(9600)</code>, click below to switch baud rate:
+              {/* Node 1: SOC Console */}
+              <div style={{ textAlign: 'center', zIndex: 1, minWidth: '95px' }}>
+                <div style={{
+                  width: '44px',
+                  height: '44px',
+                  borderRadius: '14px',
+                  background: '#eff6ff',
+                  color: '#3b82f6',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  margin: '0 auto',
+                  boxShadow: '0 1px 4px rgba(59, 130, 246, 0.15)'
+                }}>
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+                    <line x1="8" y1="21" x2="16" y2="21"/>
+                    <line x1="12" y1="17" x2="12" y2="21"/>
+                  </svg>
+                </div>
+                <div style={{ fontSize: '13px', fontWeight: 800, color: '#0f172a', marginTop: '8px' }}>
+                  SOC Console
+                </div>
+                <div style={{ fontSize: '11px', fontFamily: 'var(--mono)', color: '#94a3b8', marginTop: '2px' }}>
+                  this browser
+                </div>
+              </div>
+
+              {/* Connector 1 to 2 */}
+              <div style={{
+                flex: 1,
+                margin: '0 12px',
+                position: 'relative',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <div style={{
+                  width: '100%',
+                  borderBottom: masterOnline ? '2px dashed #22c55e' : '2px dashed #f43f5e',
+                  position: 'absolute'
+                }} />
+                <span style={{
+                  position: 'relative',
+                  background: '#ffffff',
+                  padding: '0 8px',
+                  color: masterOnline ? '#16a34a' : '#f43f5e',
+                  fontSize: masterOnline ? '14px' : '15px',
+                  fontWeight: 900
+                }}>
+                  {masterOnline ? '✓' : '✕'}
                 </span>
               </div>
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button
-                  type="button"
-                  onClick={() => handleSwitchBaud(9600)}
-                  style={{
-                    padding: '5px 12px',
-                    borderRadius: '8px',
-                    background: '#f59e0b',
-                    color: '#ffffff',
-                    fontWeight: 700,
-                    fontSize: '11px',
-                    border: 'none',
-                    cursor: 'pointer'
-                  }}
-                >
-                  Switch to 9600 Baud
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleSwitchBaud(115200)}
-                  style={{
-                    padding: '5px 12px',
-                    borderRadius: '8px',
-                    background: '#ffffff',
-                    color: '#92400e',
-                    fontWeight: 700,
-                    fontSize: '11px',
-                    border: '1px solid #fcd34d',
-                    cursor: 'pointer'
-                  }}
-                >
-                  Keep 115200 Baud
-                </button>
+
+              {/* Node 2: Master ESP32 */}
+              <div style={{ textAlign: 'center', zIndex: 1, minWidth: '95px' }}>
+                <div style={{
+                  width: '44px',
+                  height: '44px',
+                  borderRadius: '14px',
+                  background: masterOnline ? '#ecfdf5' : '#fff1f2',
+                  color: masterOnline ? '#10b981' : '#f43f5e',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  margin: '0 auto',
+                  boxShadow: masterOnline ? '0 1px 4px rgba(16, 185, 129, 0.15)' : '0 1px 4px rgba(244, 63, 94, 0.15)'
+                }}>
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 2v6m0 8v6M8 8v4a4 4 0 0 0 8 0V8"/>
+                  </svg>
+                </div>
+                <div style={{ fontSize: '13px', fontWeight: 800, color: '#0f172a', marginTop: '8px' }}>
+                  Master ESP32
+                </div>
+                <div style={{ fontSize: '11px', fontFamily: 'var(--mono)', color: '#94a3b8', marginTop: '2px' }}>
+                  USB COM port
+                </div>
+              </div>
+
+              {/* Connector 2 to 3 */}
+              <div style={{
+                flex: 1,
+                margin: '0 12px',
+                position: 'relative',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}>
+                <div style={{
+                  width: '100%',
+                  borderBottom: masterOnline ? '2px dashed #86efac' : '2px dashed #cbd5e1',
+                  position: 'absolute'
+                }} />
+                <span style={{
+                  position: 'relative',
+                  background: '#ffffff',
+                  padding: '0 6px',
+                  color: '#94a3b8',
+                  fontSize: '11px',
+                  fontFamily: 'var(--mono)'
+                }}>
+                  {masterOnline ? 'ESP-NOW' : '······'}
+                </span>
+              </div>
+
+              {/* Node 3: Sensor Mesh */}
+              <div style={{ textAlign: 'center', zIndex: 1, minWidth: '95px' }}>
+                <div style={{
+                  width: '44px',
+                  height: '44px',
+                  borderRadius: '14px',
+                  background: '#f5f3ff',
+                  color: '#8b5cf6',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  margin: '0 auto',
+                  boxShadow: '0 1px 4px rgba(139, 92, 246, 0.15)'
+                }}>
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M4.9 19.1A10 10 0 0 1 12 16a10 10 0 0 1 7.1 3.1M7.8 16.2A6 6 0 0 1 12 14a6 6 0 0 1 4.2 2.2M12 12a2 2 0 1 0 0-4 2 2 0 0 0 0 4z"/>
+                    <line x1="12" y1="2" x2="12" y2="4"/>
+                  </svg>
+                </div>
+                <div style={{ fontSize: '13px', fontWeight: 800, color: '#0f172a', marginTop: '8px' }}>
+                  Sensor Mesh
+                </div>
+                <div style={{ fontSize: '11px', fontFamily: 'var(--mono)', color: '#94a3b8', marginTop: '2px' }}>
+                  field nodes
+                </div>
               </div>
             </div>
-          )}
+          </div>
+
+          {/* Action Row: Baud Rate, Check status, Connect ESP32, Settings */}
+          <div style={{ display: 'flex', alignItems: 'flex-end', flexWrap: 'wrap', gap: '12px' }}>
+            {/* Baud Rate Selector */}
+            <div>
+              <label style={{ display: 'block', fontSize: '10px', fontFamily: 'var(--mono)', fontWeight: 800, letterSpacing: '0.08em', color: '#94a3b8', marginBottom: '6px', textTransform: 'uppercase' }}>
+                BAUD RATE
+              </label>
+              <select
+                value={selectedBaud}
+                onChange={(e) => {
+                  const b = Number(e.target.value)
+                  setSelectedBaud(b)
+                  if (usbConnected) handleSwitchBaud(b)
+                }}
+                style={{
+                  height: '42px',
+                  padding: '0 14px',
+                  borderRadius: '12px',
+                  border: '1.5px solid #cbd5e1',
+                  background: '#ffffff',
+                  fontSize: '13px',
+                  fontWeight: 700,
+                  fontFamily: 'var(--mono)',
+                  color: '#0f172a',
+                  cursor: 'pointer',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
+                  minWidth: '120px'
+                }}
+              >
+                <option value={115200}>115200</option>
+                <option value={9600}>9600</option>
+                <option value={57600}>57600</option>
+                <option value={38400}>38400</option>
+              </select>
+            </div>
+
+            {/* Check gateway status button */}
+            <button
+              type="button"
+              onClick={() => {
+                setLastAttempt(new Date().toLocaleTimeString())
+                handleCheckGateway()
+              }}
+              style={{
+                height: '42px',
+                padding: '0 18px',
+                borderRadius: '12px',
+                background: '#ffffff',
+                border: '1.5px solid #cbd5e1',
+                color: '#334155',
+                fontSize: '13px',
+                fontWeight: 700,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                cursor: 'pointer',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="4"/>
+                <path d="m9 12 2 2 4-4"/>
+              </svg>
+              <span>Check gateway status</span>
+            </button>
+
+            {/* Connect ESP32 (USB COM Port) primary button */}
+            {usbConnected ? (
+              <button
+                type="button"
+                onClick={handleDisconnectUsb}
+                style={{
+                  height: '42px',
+                  padding: '0 24px',
+                  borderRadius: '12px',
+                  background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+                  color: '#ffffff',
+                  fontSize: '13.5px',
+                  fontWeight: 800,
+                  border: 'none',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 14px rgba(239, 68, 68, 0.35)',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <span>⚡</span>
+                <span>Disconnect ESP32 (COM Connected)</span>
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setLastAttempt(new Date().toLocaleTimeString())
+                  handleConnectUsb(selectedBaud)
+                }}
+                disabled={connectingHw}
+                style={{
+                  height: '42px',
+                  padding: '0 26px',
+                  borderRadius: '12px',
+                  background: 'linear-gradient(135deg, #2563eb 0%, #06b6d4 100%)',
+                  color: '#ffffff',
+                  fontSize: '13.5px',
+                  fontWeight: 800,
+                  border: 'none',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 16px rgba(37, 99, 235, 0.35)',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <span>⚡</span>
+                <span>{connectingHw ? 'Opening Port...' : 'Connect ESP32 (USB COM Port)'}</span>
+              </button>
+            )}
+
+            {/* Settings button */}
+            <button
+              type="button"
+              onClick={() => setUsbModalOpen(true)}
+              style={{
+                height: '42px',
+                padding: '0 18px',
+                borderRadius: '12px',
+                background: '#ffffff',
+                border: '1.5px solid #cbd5e1',
+                color: '#334155',
+                fontSize: '13px',
+                fontWeight: 700,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                cursor: 'pointer',
+                boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+                transition: 'all 0.15s ease'
+              }}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+              </svg>
+              <span>Settings</span>
+            </button>
+          </div>
+
+          {/* Collapsible 3-Step Checklist */}
+          <div style={{ marginTop: '4px' }}>
+            <button
+              type="button"
+              onClick={() => setChecklistOpen(!checklistOpen)}
+              style={{
+                color: '#2563eb',
+                fontSize: '13px',
+                fontWeight: 800,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '6px',
+                cursor: 'pointer',
+                padding: '4px 0',
+                background: 'none',
+                border: 'none'
+              }}
+            >
+              <span>{checklistOpen ? '▲' : '▼'}</span>
+              <span>{checklistOpen ? "Not sure why it's offline? Hide checklist" : "Not sure why it's offline? Show the 3-step checklist"}</span>
+            </button>
+
+            {checklistOpen && (
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))',
+                gap: '14px',
+                marginTop: '10px'
+              }}>
+                {/* Step 1 */}
+                <div style={{
+                  background: '#ffffff',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '16px',
+                  padding: '16px 18px',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
+                }}>
+                  <div style={{
+                    width: '22px',
+                    height: '22px',
+                    borderRadius: '50%',
+                    background: '#fff1f2',
+                    border: '1px solid #fecaca',
+                    color: '#e11d48',
+                    fontSize: '11px',
+                    fontWeight: 800,
+                    fontFamily: 'var(--mono)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginBottom: '10px'
+                  }}>
+                    1
+                  </div>
+                  <p style={{ fontSize: '12.5px', color: '#475569', margin: 0, lineHeight: 1.55 }}>
+                    Plug the Master ESP32 into this machine using a <code style={{ background: '#f1f5f9', border: '1px solid #e2e8f0', padding: '2px 6px', borderRadius: '6px', fontSize: '11px', fontFamily: 'var(--mono)', color: '#0f172a', fontWeight: 600 }}>USB-C data</code> cable — not a charge-only cable.
+                  </p>
+                </div>
+
+                {/* Step 2 */}
+                <div style={{
+                  background: '#ffffff',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '16px',
+                  padding: '16px 18px',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
+                }}>
+                  <div style={{
+                    width: '22px',
+                    height: '22px',
+                    borderRadius: '50%',
+                    background: '#fff1f2',
+                    border: '1px solid #fecaca',
+                    color: '#e11d48',
+                    fontSize: '11px',
+                    fontWeight: 800,
+                    fontFamily: 'var(--mono)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginBottom: '10px'
+                  }}>
+                    2
+                  </div>
+                  <p style={{ fontSize: '12.5px', color: '#475569', margin: 0, lineHeight: 1.55 }}>
+                    Match the baud rate above to the firmware setting. Default for stock builds is <code style={{ background: '#f1f5f9', border: '1px solid #e2e8f0', padding: '2px 6px', borderRadius: '6px', fontSize: '11px', fontFamily: 'var(--mono)', color: '#0f172a', fontWeight: 600 }}>115200</code>.
+                  </p>
+                </div>
+
+                {/* Step 3 */}
+                <div style={{
+                  background: '#ffffff',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '16px',
+                  padding: '16px 18px',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.02)'
+                }}>
+                  <div style={{
+                    width: '22px',
+                    height: '22px',
+                    borderRadius: '50%',
+                    background: '#fff1f2',
+                    border: '1px solid #fecaca',
+                    color: '#e11d48',
+                    fontSize: '11px',
+                    fontWeight: 800,
+                    fontFamily: 'var(--mono)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    marginBottom: '10px'
+                  }}>
+                    3
+                  </div>
+                  <p style={{ fontSize: '12.5px', color: '#475569', margin: 0, lineHeight: 1.55 }}>
+                    Click <code style={{ background: '#f1f5f9', border: '1px solid #e2e8f0', padding: '2px 6px', borderRadius: '6px', fontSize: '11px', fontFamily: 'var(--mono)', color: '#0f172a', fontWeight: 600 }}>Connect</code> and pick the ESP32's COM port from the browser's serial port prompt.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Footer inside card */}
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            paddingTop: '16px',
+            marginTop: '4px',
+            borderTop: masterOnline ? '1px solid #dcfce7' : '1px solid #fee2e2',
+            fontSize: '12px',
+            color: '#64748b',
+            flexWrap: 'wrap',
+            gap: '8px'
+          }}>
+            <div>
+              Last connection attempt: <strong style={{ color: '#0f172a', fontFamily: 'var(--mono)' }}>{lastAttempt || 'never this session'}</strong>
+            </div>
+            <button
+              type="button"
+              onClick={() => setUsbModalOpen(true)}
+              style={{
+                color: '#2563eb',
+                fontWeight: 700,
+                cursor: 'pointer',
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px',
+                background: 'none',
+                border: 'none',
+                padding: 0
+              }}
+            >
+              <span>View hardware setup guide</span>
+              <span>→</span>
+            </button>
+          </div>
         </div>
 
         {/* ─── Hero Section ──────────────────────────────────────────────── */}

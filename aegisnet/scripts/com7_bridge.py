@@ -521,12 +521,6 @@ def serial_reader_loop():
             time.sleep(2)
 
 
-def fallback_generator_loop():
-    """Strictly physical hardware — no fake simulated data per user architecture mandate."""
-    while True:
-        time.sleep(10.0)
-
-
 def main():
     print("=" * 65)
     print("  AegisNet ESP32 Hardware Bridge")
@@ -538,11 +532,7 @@ def main():
     serial_thread = threading.Thread(target=serial_reader_loop, daemon=True)
     serial_thread.start()
 
-    # 2. Start Continuous Telemetry Fallback Thread
-    fallback_thread = threading.Thread(target=fallback_generator_loop, daemon=True)
-    fallback_thread.start()
-
-    # 3. Start HTTP / SSE Telemetry Server
+    # 2. Start HTTP / SSE Telemetry Server
     server_address = ('', HTTP_PORT)
     httpd = ThreadingHTTPServer(server_address, TelemetryHandler)
     print(f"[COM7 Bridge] Telemetry server running on port {HTTP_PORT}. Streaming live data.")
