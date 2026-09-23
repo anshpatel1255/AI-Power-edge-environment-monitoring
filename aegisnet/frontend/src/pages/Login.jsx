@@ -40,23 +40,6 @@ export default function Login() {
     }, 700)
   }
 
-  const handleDemoBypass = () => {
-    setLoading(true)
-    setTimeout(() => {
-      setAuth(
-        {
-          id: 1,
-          name: 'Duty Chief (GSDMA)',
-          email: 'authority@aegisnet.local',
-          role: 'GSDMA Officer',
-          agency: 'State Emergency Operation Center (SEOC)',
-        },
-        'demo-jwt-token'
-      )
-      navigate('/dashboard')
-    }, 350)
-  }
-
   return (
     <div className="relative min-h-screen font-sans overflow-hidden bg-slate-950 flex flex-col justify-between">
 
@@ -214,20 +197,8 @@ export default function Login() {
               </button>
             </form>
 
-            {/* Quick Demo Bypass */}
-            <div className="pt-2 border-t border-white/15">
-              <button
-                type="button"
-                onClick={handleDemoBypass}
-                className="w-full py-2.5 px-4 bg-white/[0.08] hover:bg-white/[0.18] border border-white/20 hover:border-cyan-400/50 text-white text-xs font-bold font-mono rounded-full transition-all flex items-center justify-center gap-2 shadow-sm cursor-pointer backdrop-blur-md"
-              >
-                <span>⚡</span>
-                <span>Quick Demo Access (GSDMA Duty Chief)</span>
-              </button>
-            </div>
-
             {/* Public citizen advisory link */}
-            <div className="text-center pt-1">
+            <div className="text-center pt-2 border-t border-white/15">
               <Link
                 to="/public"
                 className="text-xs text-slate-300 hover:text-cyan-300 font-medium underline underline-offset-4 transition-colors"
