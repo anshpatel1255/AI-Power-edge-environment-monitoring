@@ -744,26 +744,31 @@ export default function TelemetryPage() {
   // Strictly based on Master Gateway ONLINE AND real packet arrival within the last 30 seconds!
   const isSensorLive = useCallback((metricId) => {
     if (isSimulating) return true
-    if (!masterOnline) return false
+    if (!usbConnected || !masterOnline) return false
     const lastT = sensorLastSeen[metricId]
     if (!lastT) return false
     return (Date.now() - lastT) < 30000 // consider live only if updated within 30s
-  }, [isSimulating, masterOnline, sensorLastSeen])
+  }, [isSimulating, usbConnected, masterOnline, sensorLastSeen])
 
   // Determine whether a station has any active physical sensors
   const isStationLive = useCallback((station) => {
     if (isSimulating) return true
-    if (!masterOnline) return false
+    if (!usbConnected || !masterOnline) return false
     if (!station || !station.metrics) return false
     const nodeKey = station.node === 'ESP32-FLOOD' ? 'FLOOD' : (station.node === 'ESP32-COTEMP' ? 'CO_TEMP' : 'POLLUTION')
     if (nodeOnlineStatus[nodeKey] === false) return false
     return station.metrics.some((m) => isSensorLive(m.id))
-  }, [isSimulating, masterOnline, nodeOnlineStatus, isSensorLive])
+  }, [isSimulating, usbConnected, masterOnline, nodeOnlineStatus, isSensorLive])
 
   const handleConnectUsb = async (baud = selectedBaud) => {
     setConnectingHw(true)
     try {
+      webSerialService.userDisconnected = false
+      if (typeof localStorage !== 'undefined') {
+        localStorage.removeItem('esp32_user_disconnected')
+      }
       await webSerialService.connect(baud)
+      setMasterOnline(true)
       showToast(`✓ ESP32 connected at ${baud} baud! Streaming live telemetry.`)
       // Refresh local metrics and timestamps
       const initVals = getInitialMetrics()
@@ -778,7 +783,18 @@ export default function TelemetryPage() {
       if (err.name === 'NotFoundError') {
         showToast('Port selection cancelled.')
       } else {
-        showToast(`Connection failed: ${err.message}`)
+        // Fallback: connect via local python bridge stream if web serial was not picked
+        try {
+          webSerialService.userDisconnected = false
+          if (typeof localStorage !== 'undefined') {
+            localStorage.removeItem('esp32_user_disconnected')
+          }
+          webSerialService.startBridgeListener()
+          setMasterOnline(true)
+          showToast('✓ Connected to ESP32 Gateway via COM Bridge!')
+        } catch {
+          showToast(`Connection failed: ${err.message}`)
+        }
       }
     } finally {
       setConnectingHw(false)
@@ -798,11 +814,18 @@ export default function TelemetryPage() {
   const handleDisconnectUsb = async () => {
     try {
       await webSerialService.disconnect()
-      showToast('ESP32 disconnected.')
+      setMasterOnline(false)
+      setNodeOnlineStatus({ FLOOD: false, CO_TEMP: false, POLLUTION: false })
+      setSensorLastSeen({})
+      setMetricValues({})
+      showToast('ESP32 disconnected. Auto-connect paused.')
     } catch (err) {
       showToast(`Disconnect error: ${err.message}`)
     }
   }
+
+  // Gateway is strictly considered ONLINE only when connected over USB/bridge and reporting online
+  const isGatewayOnline = Boolean(usbConnected && masterOnline)
 
   // Find 3 primary ESP32 nodes from store
   const floodNode = useMemo(() => (
@@ -1072,6 +1095,14 @@ export default function TelemetryPage() {
     let socket = null
 
     const fetchLatestFromBackend = async () => {
+      // If user explicitly disconnected in frontend, do NOT auto-online the gateway!
+      if (typeof localStorage !== 'undefined' && localStorage.getItem('esp32_user_disconnected') === 'true') {
+        setMasterOnline(false)
+        setNodeOnlineStatus({ FLOOD: false, CO_TEMP: false, POLLUTION: false })
+        setSensorLastSeen({})
+        return
+      }
+
       try {
         const res = await fetch(`${BACKEND_URL}/api/sensor-data/latest`)
         if (!res.ok) {
@@ -1132,6 +1163,9 @@ export default function TelemetryPage() {
       })
 
       socket.on('sensor:data', (packet) => {
+        if (typeof localStorage !== 'undefined' && localStorage.getItem('esp32_user_disconnected') === 'true') {
+          return
+        }
         if (packet && packet.node) {
           setMasterOnline(true)
           applySensorReading(packet.node, packet)
@@ -1343,12 +1377,12 @@ export default function TelemetryPage() {
         </div>
 
         <div style={{
-          background: masterOnline ? '#f0fdf4' : '#fff5f5',
-          border: masterOnline ? '1.5px solid #bbf7d0' : '1.5px solid #fecaca',
+          background: isGatewayOnline ? '#f0fdf4' : '#fff5f5',
+          border: isGatewayOnline ? '1.5px solid #bbf7d0' : '1.5px solid #fecaca',
           borderRadius: '26px',
           padding: '24px 28px',
           marginBottom: '28px',
-          boxShadow: masterOnline ? '0 4px 20px -2px rgba(34, 197, 94, 0.12)' : '0 4px 20px -2px rgba(244, 63, 94, 0.08)',
+          boxShadow: isGatewayOnline ? '0 4px 20px -2px rgba(34, 197, 94, 0.12)' : '0 4px 20px -2px rgba(244, 63, 94, 0.08)',
           display: 'flex',
           flexDirection: 'column',
           gap: '18px'
@@ -1360,13 +1394,13 @@ export default function TelemetryPage() {
               width: '48px',
               height: '48px',
               borderRadius: '16px',
-              background: masterOnline ? 'linear-gradient(135deg, #10b981, #059669)' : 'linear-gradient(135deg, #f43f5e, #dc2626)',
+              background: isGatewayOnline ? 'linear-gradient(135deg, #10b981, #059669)' : 'linear-gradient(135deg, #f43f5e, #dc2626)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               color: '#ffffff',
               fontSize: '22px',
-              boxShadow: masterOnline ? '0 4px 14px rgba(16, 185, 129, 0.35)' : '0 4px 14px rgba(244, 63, 94, 0.3)',
+              boxShadow: isGatewayOnline ? '0 4px 14px rgba(16, 185, 129, 0.35)' : '0 4px 14px rgba(244, 63, 94, 0.3)',
               flexShrink: 0
             }}>
               <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
@@ -1387,8 +1421,8 @@ export default function TelemetryPage() {
                   padding: '3px 12px',
                   borderRadius: '999px',
                   background: '#ffffff',
-                  border: masterOnline ? '1.5px solid #86efac' : '1.5px solid #fecaca',
-                  color: masterOnline ? '#15803d' : '#e11d48',
+                  border: isGatewayOnline ? '1.5px solid #86efac' : '1.5px solid #fecaca',
+                  color: isGatewayOnline ? '#15803d' : '#e11d48',
                   fontSize: '11px',
                   fontFamily: 'var(--mono)',
                   fontWeight: 800,
@@ -1399,15 +1433,15 @@ export default function TelemetryPage() {
                     width: '7px',
                     height: '7px',
                     borderRadius: '50%',
-                    background: masterOnline ? '#22c55e' : '#f43f5e',
+                    background: isGatewayOnline ? '#22c55e' : '#f43f5e',
                     display: 'inline-block'
-                  }} className={masterOnline ? 'pulse' : ''} />
-                  {masterOnline ? 'ONLINE · HARDWARE STREAMING' : 'OFFLINE · AWAITING HARDWARE'}
+                  }} className={isGatewayOnline ? 'pulse' : ''} />
+                  {isGatewayOnline ? 'ONLINE · HARDWARE STREAMING' : 'OFFLINE · AWAITING HARDWARE'}
                 </span>
               </div>
 
               <p style={{ fontSize: '13px', color: '#475569', marginTop: '6px', marginBottom: 0, lineHeight: 1.55 }}>
-                {masterOnline ? (
+                {isGatewayOnline ? (
                   <>
                     Gateway connected and synchronized. <strong style={{ color: '#0f172a' }}>Streaming real physical sensor data</strong> — Master ESP32 forwarding ESP-NOW packets from all field nodes over USB COM.
                   </>
@@ -1423,7 +1457,7 @@ export default function TelemetryPage() {
           {/* Middle Diagram Box: Topology */}
           <div style={{
             background: '#ffffff',
-            border: masterOnline ? '1.5px solid #dcfce7' : '1.5px solid #ffe4e6',
+            border: isGatewayOnline ? '1.5px solid #dcfce7' : '1.5px solid #ffe4e6',
             borderRadius: '18px',
             padding: '24px 20px',
             boxShadow: '0 1px 4px rgba(0,0,0,0.02)'
@@ -1476,18 +1510,18 @@ export default function TelemetryPage() {
               }}>
                 <div style={{
                   width: '100%',
-                  borderBottom: masterOnline ? '2px dashed #22c55e' : '2px dashed #f43f5e',
+                  borderBottom: isGatewayOnline ? '2px dashed #22c55e' : '2px dashed #f43f5e',
                   position: 'absolute'
                 }} />
                 <span style={{
                   position: 'relative',
                   background: '#ffffff',
                   padding: '0 8px',
-                  color: masterOnline ? '#16a34a' : '#f43f5e',
-                  fontSize: masterOnline ? '14px' : '15px',
+                  color: isGatewayOnline ? '#16a34a' : '#f43f5e',
+                  fontSize: isGatewayOnline ? '14px' : '15px',
                   fontWeight: 900
                 }}>
-                  {masterOnline ? '✓' : '✕'}
+                  {isGatewayOnline ? '✓' : '✕'}
                 </span>
               </div>
 
@@ -1497,13 +1531,13 @@ export default function TelemetryPage() {
                   width: '44px',
                   height: '44px',
                   borderRadius: '14px',
-                  background: masterOnline ? '#ecfdf5' : '#fff1f2',
-                  color: masterOnline ? '#10b981' : '#f43f5e',
+                  background: isGatewayOnline ? '#ecfdf5' : '#fff1f2',
+                  color: isGatewayOnline ? '#10b981' : '#f43f5e',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   margin: '0 auto',
-                  boxShadow: masterOnline ? '0 1px 4px rgba(16, 185, 129, 0.15)' : '0 1px 4px rgba(244, 63, 94, 0.15)'
+                  boxShadow: isGatewayOnline ? '0 1px 4px rgba(16, 185, 129, 0.15)' : '0 1px 4px rgba(244, 63, 94, 0.15)'
                 }}>
                   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M12 2v6m0 8v6M8 8v4a4 4 0 0 0 8 0V8"/>
@@ -1528,7 +1562,7 @@ export default function TelemetryPage() {
               }}>
                 <div style={{
                   width: '100%',
-                  borderBottom: masterOnline ? '2px dashed #86efac' : '2px dashed #cbd5e1',
+                  borderBottom: isGatewayOnline ? '2px dashed #86efac' : '2px dashed #cbd5e1',
                   position: 'absolute'
                 }} />
                 <span style={{
@@ -1539,7 +1573,7 @@ export default function TelemetryPage() {
                   fontSize: '11px',
                   fontFamily: 'var(--mono)'
                 }}>
-                  {masterOnline ? 'ESP-NOW' : '······'}
+                  {isGatewayOnline ? 'ESP-NOW' : '······'}
                 </span>
               </div>
 

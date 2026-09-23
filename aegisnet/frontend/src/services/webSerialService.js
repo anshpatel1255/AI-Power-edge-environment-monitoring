@@ -22,6 +22,8 @@ class WebSerialService {
     this.cotempBuf = {}
     this.polBuf = {}
     this.currentSection = null
+    this.bridgeEventSource = null
+    this.userDisconnected = typeof localStorage !== 'undefined' && localStorage.getItem('esp32_user_disconnected') === 'true'
     this.initNodeBuffers()
   }
 
@@ -104,6 +106,10 @@ class WebSerialService {
 
   // Request port and connect
   async connect(baudRate = null) {
+    this.userDisconnected = false
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem('esp32_user_disconnected')
+    }
     if (baudRate) this.baudRate = Number(baudRate)
     const store = useStore.getState()
 
@@ -903,10 +909,21 @@ class WebSerialService {
 
   // Disconnect cleanly
   async disconnect() {
+    this.userDisconnected = true
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('esp32_user_disconnected', 'true')
+    }
     this.keepReading = false
     if (this.packetRateTimer) {
       clearInterval(this.packetRateTimer)
       this.packetRateTimer = null
+    }
+
+    if (this.bridgeEventSource) {
+      try {
+        this.bridgeEventSource.close()
+      } catch {}
+      this.bridgeEventSource = null
     }
 
     try {
@@ -936,7 +953,13 @@ class WebSerialService {
     this.reader = null
     const store = useStore.getState()
     store.setUsbConnected(false, null)
-    store.addUsbLog('SYSTEM', 'Serial port closed / disconnected.', 'info')
+    store.setMasterGatewayStatus('OFFLINE', null)
+    store.addUsbLog('SYSTEM', 'Serial port closed / disconnected by user.', 'info')
+    
+    // Explicitly update sensor nodes to offline state
+    ;['ESP32-FLOOD', 'ESP32-COTEMP', 'ESP32-POLLUTION'].forEach((id) => {
+      store.upsertEsp32Node({ node_id: id, status: 'offline', is_live_hw: false, last_update: 'Disconnected' })
+    })
   }
 
   // ─── Test Packet Stream Simulator ──────────────────────────────────────────
@@ -1089,27 +1112,46 @@ class WebSerialService {
   // Connects to local Python/Node serial bridge at http://localhost:4001/api/stream
   startBridgeListener() {
     if (typeof window === 'undefined') return
+    // Respect user disconnect choice! Do not connect if user explicitly disconnected.
+    if (this.userDisconnected) return
+
+    if (this.bridgeEventSource) {
+      try { this.bridgeEventSource.close() } catch {}
+      this.bridgeEventSource = null
+    }
+
     try {
       const eventSource = new EventSource('http://localhost:4001/api/stream')
+      this.bridgeEventSource = eventSource
 
       eventSource.onopen = () => {
+        if (this.userDisconnected) {
+          try { eventSource.close() } catch {}
+          return
+        }
         const store = useStore.getState()
-        store.addUsbLog('BRIDGE', 'Connected to telemetry stream port 4001 (Awaiting physical packets)', 'info')
+        store.addUsbLog('BRIDGE', 'Connected to telemetry stream port 4001', 'info')
       }
 
       eventSource.onmessage = (event) => {
+        if (this.userDisconnected) {
+          try { eventSource.close() } catch {}
+          return
+        }
         try {
           const data = JSON.parse(event.data)
           if (data && typeof data === 'object') {
             const store = useStore.getState()
-            if (!store.usbConnected) {
+            if (!store.usbConnected && !this.userDisconnected) {
               store.setUsbConnected(true, data.port || 'ESP32 COM Gateway', 115200)
             }
-            this.packetCount++
-            this.packetsThisSecond++
-            store.incrementUsbPacketCount()
-            store.addUsbLog('COM7', JSON.stringify(data), 'rx')
-            this.processSensorPacket(data)
+            if (!this.userDisconnected) {
+              this.packetCount++
+              this.packetsThisSecond++
+              store.incrementUsbPacketCount()
+              store.addUsbLog('COM7', JSON.stringify(data), 'rx')
+              this.processSensorPacket(data)
+            }
           }
         } catch {
           // ignore
@@ -1127,8 +1169,13 @@ class WebSerialService {
 
 export const webSerialService = new WebSerialService()
 
-// Auto-start bridge listener in browser
+// Auto-start bridge listener in browser if not explicitly disconnected by user
 if (typeof window !== 'undefined') {
-  setTimeout(() => webSerialService.startBridgeListener(), 1000)
+  setTimeout(() => {
+    const isUserDisconnected = localStorage.getItem('esp32_user_disconnected') === 'true'
+    if (!isUserDisconnected) {
+      webSerialService.startBridgeListener()
+    }
+  }, 1000)
 }
 

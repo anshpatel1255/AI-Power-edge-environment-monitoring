@@ -36,6 +36,9 @@ function getSocket() {
       useStore.getState().addRealAlert(alert)
     })
     _socket.on('sensor:data', (packet) => {
+      if (typeof localStorage !== 'undefined' && localStorage.getItem('esp32_user_disconnected') === 'true') {
+        return
+      }
       useStore.getState().setMasterGatewayStatus('ONLINE', new Date().toLocaleTimeString())
       if (packet && packet.node) {
         const nodeUpper = String(packet.node).toUpperCase()
@@ -88,6 +91,10 @@ function getSocket() {
 
 // Global Hardware Status Poller — continuously checks Master ESP32 Gateway status
 async function pollMasterGatewayHealth() {
+  if (typeof localStorage !== 'undefined' && localStorage.getItem('esp32_user_disconnected') === 'true') {
+    useStore.getState().setMasterGatewayStatus('OFFLINE', null)
+    return
+  }
   try {
     const res = await fetch('http://localhost:4000/api/sensor-data/system-status')
     if (res.ok) {
