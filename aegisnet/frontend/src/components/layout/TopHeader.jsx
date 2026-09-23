@@ -216,7 +216,7 @@ export default function TopHeader({ onOpenCommandPalette, onOpenScenarioDrawer }
       <div className="bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-[0_2px_12px_-3px_rgba(15,23,42,0.06)] transition-all">
         <div className="h-[74px] px-4 lg:px-8 max-w-[1600px] mx-auto flex items-center justify-between gap-3">
 
-          {/* Left: Brand Logo + 'Code Vortex' + '⚡ Live Telemetry' Pill */}
+          {/* Left: Brand Logo */}
           <div className="flex items-center gap-3 flex-shrink-0">
             <Link to="/dashboard" className="flex items-center gap-2.5 group">
               {/* Spiral Vortex Squircle Logo */}
@@ -233,42 +233,6 @@ export default function TopHeader({ onOpenCommandPalette, onOpenScenarioDrawer }
               <span className="font-extrabold text-blue-600 text-lg tracking-tight group-hover:text-blue-700 transition-colors">
                 Code Vortex
               </span>
-            </Link>
-
-            {/* ':: Dashboard' Nav Pill */}
-            <Link
-              to="/dashboard"
-              className={clsx(
-                'px-3.5 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all shadow-2xs',
-                location.pathname === '/dashboard'
-                  ? 'bg-blue-50 text-blue-600 border border-blue-200'
-                  : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border border-slate-200/80'
-              )}
-            >
-              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <rect x="3" y="3" width="7" height="7" rx="1.5" />
-                <rect x="14" y="3" width="7" height="7" rx="1.5" />
-                <rect x="14" y="14" width="7" height="7" rx="1.5" />
-                <rect x="3" y="14" width="7" height="7" rx="1.5" />
-              </svg>
-              <span>Dashboard</span>
-            </Link>
-
-            {/* '⚡ Live Telemetry' Pill Button */}
-            <Link
-              to="/telemetry"
-              className={clsx(
-                'px-3.5 py-1.5 rounded-full text-xs font-bold flex items-center gap-1.5 transition-all shadow-2xs hidden sm:flex',
-                location.pathname === '/telemetry'
-                  ? 'bg-blue-600 text-white shadow-blue-500/25'
-                  : 'bg-sky-50 hover:bg-sky-100 text-blue-600 border border-sky-200/80'
-              )}
-            >
-              <span className={clsx(location.pathname === '/telemetry' ? 'text-white' : 'text-blue-500')}>⚡</span>
-              <span>Live Telemetry</span>
-              {isMasterOnline && (
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping inline-block" />
-              )}
             </Link>
           </div>
 

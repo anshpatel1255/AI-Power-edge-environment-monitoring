@@ -8,12 +8,22 @@ import clsx from 'clsx'
 
 // Helper component for smooth SVG Area Wave with fill gradient & glowing end dot
 function WaveChart({ points = [], color = '#2563EB', gradientId = 'waveGrad' }) {
-  if (!points || points.length < 2) return null
+  const width = 160
+  const height = 46
+
+  if (!points || points.length < 2) {
+    return (
+      <div className="w-40 h-12 flex-shrink-0 overflow-visible relative flex items-center justify-center">
+        <svg viewBox={`0 0 ${width} ${height}`} className="w-full h-full overflow-visible opacity-30">
+          <line x1="0" y1={height / 2} x2={width} y2={height / 2} stroke="#94A3B8" strokeWidth="1.5" strokeDasharray="4 4" />
+        </svg>
+      </div>
+    )
+  }
+
   const min = Math.min(...points)
   const max = Math.max(...points)
   const range = (max - min) || 1
-  const width = 160
-  const height = 46
 
   // Generate SVG curve points
   const coords = points.map((val, idx) => {
@@ -105,35 +115,69 @@ export default function LiveTelemetryStreamSection() {
   const cotempHw = esp32Nodes.find((n) => n.node_id?.includes('COTEMP'))
   const pollutionHw = esp32Nodes.find((n) => n.node_id?.includes('POLLUTION'))
 
+  const isFloodLive = Boolean(floodHw?.is_live_hw && floodHw.water_level_cm != null)
+  const isCotempLive = Boolean(cotempHw?.is_live_hw && cotempHw.temperature_c != null)
+  const isPollutionLive = Boolean(pollutionHw?.is_live_hw && pollutionHw.smoke_aqi != null)
+
   // Calculate live statistical summaries (current, peak, low, change)
-  const computeStats = (series = [], defaultVal = 0, hwVal = null) => {
-    const activeSeries = series && series.length > 0 ? series : (hwVal != null ? [hwVal] : [])
-    const current = hwVal != null ? hwVal : (activeSeries.length > 0 ? activeSeries[activeSeries.length - 1] : defaultVal)
-    const list = activeSeries.length > 0 ? activeSeries : (current != null ? [current] : [])
-    const minVal = list.length > 0 ? Math.min(...list) : 0
-    const maxVal = list.length > 0 ? Math.max(...list) : 0
+  const computeStats = (series = [], isLive = false, hwVal = null, unit = '', decimals = 1) => {
+    const validSeries = Array.isArray(series) ? series.filter(v => v !== null && v !== undefined && !Number.isNaN(v)) : []
+    const hasData = isLive && ((hwVal !== null && hwVal !== undefined && !Number.isNaN(hwVal)) || validSeries.length > 0)
+
+    if (!hasData) {
+      return {
+        hasData: false,
+        currentStr: '--',
+        peakStr: '--',
+        lowStr: '--',
+        changeStr: '--',
+        status: 'Offline',
+        statusCls: 'bg-slate-100 text-slate-500 border border-slate-200/80',
+        points: []
+      }
+    }
+
+    const current = (hwVal !== null && hwVal !== undefined && !Number.isNaN(hwVal))
+      ? hwVal
+      : validSeries[validSeries.length - 1]
+
+    const list = validSeries.length > 0 ? validSeries : [current]
+    const minVal = Math.min(...list)
+    const maxVal = Math.max(...list)
     const prevVal = list.length > 1 ? list[list.length - 2] : current
-    const delta = (current != null && prevVal != null) ? (current - prevVal) : 0
+    const delta = current - prevVal
     const pct = prevVal && prevVal !== 0 ? ((delta / prevVal) * 100) : 0
+
+    let status = 'Steady'
+    let statusCls = 'bg-slate-100 text-slate-600 border border-slate-200/60'
+    if (delta > 0.05) {
+      status = 'Rising'
+      statusCls = 'bg-emerald-50 text-emerald-700 border border-emerald-200/60'
+    } else if (delta < -0.05) {
+      status = 'Falling'
+      statusCls = 'bg-sky-50 text-sky-700 border border-sky-200/60'
+    }
+
     return {
-      current: current ?? 0,
-      peak: maxVal,
-      low: minVal,
-      delta: parseFloat(delta.toFixed(2)),
-      pct: (pct >= 0 ? '+' : '') + pct.toFixed(1) + '%',
-      isUp: delta > 0.001,
-      isDown: delta < -0.001,
-      points: list.length > 1 ? list : (list.length === 1 ? [list[0], list[0]] : []),
+      hasData: true,
+      current,
+      currentStr: current.toFixed(decimals),
+      peakStr: `${maxVal.toFixed(decimals)} ${unit}`.trim(),
+      lowStr: `${minVal.toFixed(decimals)} ${unit}`.trim(),
+      changeStr: `${delta >= 0 ? '+' : ''}${delta.toFixed(decimals)} ${unit} (${(pct >= 0 ? '+' : '')}${pct.toFixed(1)}%)`.trim(),
+      status,
+      statusCls,
+      points: list.length > 1 ? list : [list[0], list[0]]
     }
   }
 
-  const water = computeStats(telemetryHistory?.water, 0, floodHw?.water_level_cm)
-  const temp  = computeStats(telemetryHistory?.temp,  0, cotempHw?.temperature_c)
-  const hum   = computeStats(telemetryHistory?.hum,   0, cotempHw?.humidity_pct)
-  const co    = computeStats(telemetryHistory?.co,    0, cotempHw?.gas_ppm)
-  const aqi   = computeStats(telemetryHistory?.aqi,   0, pollutionHw?.smoke_aqi)
+  const water = computeStats(telemetryHistory?.water, isFloodLive, floodHw?.water_level_cm, 'cm', 1)
+  const temp  = computeStats(telemetryHistory?.temp,  isCotempLive, cotempHw?.temperature_c, '°C', 1)
+  const hum   = computeStats(telemetryHistory?.hum,   isCotempLive, cotempHw?.humidity_pct, '%', 1)
+  const co    = computeStats(telemetryHistory?.co,    isCotempLive, cotempHw?.gas_ppm, 'ppm', 2)
+  const aqi   = computeStats(telemetryHistory?.aqi,   isPollutionLive, pollutionHw?.smoke_aqi, 'AQI', 0)
 
-  const isFlameDetected = cotempHw?.flame_detected || surgeActive
+  const isFlameDetected = isCotempLive ? (cotempHw?.flame_detected || surgeActive) : surgeActive
 
   return (
     <div className="bg-white border border-slate-200/90 rounded-3xl p-6 sm:p-7 shadow-xs space-y-6 transition-all font-sans">
@@ -218,14 +262,14 @@ export default function LiveTelemetryStreamSection() {
               </div>
               <span className="text-xs font-bold text-slate-900">Water depth</span>
             </div>
-            <span className="bg-emerald-50 text-emerald-700 text-[10px] font-bold px-2.5 py-0.5 rounded-full border border-emerald-200/60">
-              Rising
+            <span className={clsx('text-[10px] font-bold px-2.5 py-0.5 rounded-full border', water.statusCls)}>
+              {water.status}
             </span>
           </div>
 
           <div className="flex items-baseline justify-between gap-2">
             <div className="text-3xl font-extrabold text-slate-900 font-sans tracking-tight">
-              {water.current.toFixed(1)} <span className="text-xs font-semibold text-slate-500">cm</span>
+              {water.currentStr} {water.hasData && <span className="text-xs font-semibold text-slate-500">cm</span>}
             </div>
             <WaveChart points={water.points} color="#2563EB" gradientId="waveWater" />
           </div>
@@ -233,17 +277,15 @@ export default function LiveTelemetryStreamSection() {
           <div className="pt-3 border-t border-slate-200/60 grid grid-cols-3 text-[11px] text-slate-500">
             <div>
               <div className="text-[10px] text-slate-400">Peak</div>
-              <div className="font-bold text-slate-800 mt-0.5">{water.peak.toFixed(1)} cm</div>
+              <div className="font-bold text-slate-800 mt-0.5">{water.peakStr}</div>
             </div>
             <div>
               <div className="text-[10px] text-slate-400">Low</div>
-              <div className="font-bold text-slate-800 mt-0.5">{water.low.toFixed(1)} cm</div>
+              <div className="font-bold text-slate-800 mt-0.5">{water.lowStr}</div>
             </div>
             <div>
               <div className="text-[10px] text-slate-400">Change</div>
-              <div className="font-bold text-slate-800 mt-0.5">
-                {water.delta >= 0 ? `+${water.delta.toFixed(1)}` : water.delta.toFixed(1)} cm ({water.pct})
-              </div>
+              <div className="font-bold text-slate-800 mt-0.5">{water.changeStr}</div>
             </div>
           </div>
         </div>
@@ -259,14 +301,14 @@ export default function LiveTelemetryStreamSection() {
               </div>
               <span className="text-xs font-bold text-slate-900">Temperature</span>
             </div>
-            <span className="bg-slate-100 text-slate-600 text-[10px] font-bold px-2.5 py-0.5 rounded-full border border-slate-200/60">
-              Steady
+            <span className={clsx('text-[10px] font-bold px-2.5 py-0.5 rounded-full border', temp.statusCls)}>
+              {temp.status}
             </span>
           </div>
 
           <div className="flex items-baseline justify-between gap-2">
             <div className="text-3xl font-extrabold text-slate-900 font-sans tracking-tight">
-              {temp.current.toFixed(1)} <span className="text-xs font-semibold text-slate-500">°C</span>
+              {temp.currentStr} {temp.hasData && <span className="text-xs font-semibold text-slate-500">°C</span>}
             </div>
             <WaveChart points={temp.points} color="#F97316" gradientId="waveTemp" />
           </div>
@@ -274,17 +316,15 @@ export default function LiveTelemetryStreamSection() {
           <div className="pt-3 border-t border-slate-200/60 grid grid-cols-3 text-[11px] text-slate-500">
             <div>
               <div className="text-[10px] text-slate-400">Peak</div>
-              <div className="font-bold text-slate-800 mt-0.5">{temp.peak.toFixed(1)} °C</div>
+              <div className="font-bold text-slate-800 mt-0.5">{temp.peakStr}</div>
             </div>
             <div>
               <div className="text-[10px] text-slate-400">Low</div>
-              <div className="font-bold text-slate-800 mt-0.5">{temp.low.toFixed(1)} °C</div>
+              <div className="font-bold text-slate-800 mt-0.5">{temp.lowStr}</div>
             </div>
             <div>
               <div className="text-[10px] text-slate-400">Change</div>
-              <div className="font-bold text-slate-800 mt-0.5">
-                {temp.delta >= 0 ? `+${temp.delta.toFixed(1)}` : temp.delta.toFixed(1)} °C ({temp.pct})
-              </div>
+              <div className="font-bold text-slate-800 mt-0.5">{temp.changeStr}</div>
             </div>
           </div>
         </div>
@@ -300,14 +340,14 @@ export default function LiveTelemetryStreamSection() {
               </div>
               <span className="text-xs font-bold text-slate-900">Humidity</span>
             </div>
-            <span className="bg-amber-50 text-amber-700 text-[10px] font-bold px-2.5 py-0.5 rounded-full border border-amber-200/60">
-              Rising
+            <span className={clsx('text-[10px] font-bold px-2.5 py-0.5 rounded-full border', hum.statusCls)}>
+              {hum.status}
             </span>
           </div>
 
           <div className="flex items-baseline justify-between gap-2">
             <div className="text-3xl font-extrabold text-slate-900 font-sans tracking-tight">
-              {hum.current.toFixed(1)} <span className="text-xs font-semibold text-slate-500">%</span>
+              {hum.currentStr} {hum.hasData && <span className="text-xs font-semibold text-slate-500">%</span>}
             </div>
             <WaveChart points={hum.points} color="#06B6D4" gradientId="waveHum" />
           </div>
@@ -315,17 +355,15 @@ export default function LiveTelemetryStreamSection() {
           <div className="pt-3 border-t border-slate-200/60 grid grid-cols-3 text-[11px] text-slate-500">
             <div>
               <div className="text-[10px] text-slate-400">Peak</div>
-              <div className="font-bold text-slate-800 mt-0.5">{hum.peak.toFixed(1)} %</div>
+              <div className="font-bold text-slate-800 mt-0.5">{hum.peakStr}</div>
             </div>
             <div>
               <div className="text-[10px] text-slate-400">Low</div>
-              <div className="font-bold text-slate-800 mt-0.5">{hum.low.toFixed(1)} %</div>
+              <div className="font-bold text-slate-800 mt-0.5">{hum.lowStr}</div>
             </div>
             <div>
               <div className="text-[10px] text-slate-400">Change</div>
-              <div className="font-bold text-slate-800 mt-0.5">
-                {hum.delta >= 0 ? `+${hum.delta.toFixed(1)}` : hum.delta.toFixed(1)} % ({hum.pct})
-              </div>
+              <div className="font-bold text-slate-800 mt-0.5">{hum.changeStr}</div>
             </div>
           </div>
         </div>
@@ -342,14 +380,14 @@ export default function LiveTelemetryStreamSection() {
               </div>
               <span className="text-xs font-bold text-slate-900">CO gas (MQ-7)</span>
             </div>
-            <span className="bg-emerald-50 text-emerald-700 text-[10px] font-bold px-2.5 py-0.5 rounded-full border border-emerald-200/60">
-              Falling
+            <span className={clsx('text-[10px] font-bold px-2.5 py-0.5 rounded-full border', co.statusCls)}>
+              {co.status}
             </span>
           </div>
 
           <div className="flex items-baseline justify-between gap-2">
             <div className="text-3xl font-extrabold text-slate-900 font-sans tracking-tight">
-              {co.current.toFixed(2)} <span className="text-xs font-semibold text-slate-500">ppm</span>
+              {co.currentStr} {co.hasData && <span className="text-xs font-semibold text-slate-500">ppm</span>}
             </div>
             <WaveChart points={co.points} color="#EF4444" gradientId="waveCO" />
           </div>
@@ -357,17 +395,15 @@ export default function LiveTelemetryStreamSection() {
           <div className="pt-3 border-t border-slate-200/60 grid grid-cols-3 text-[11px] text-slate-500">
             <div>
               <div className="text-[10px] text-slate-400">Peak</div>
-              <div className="font-bold text-slate-800 mt-0.5">{co.peak.toFixed(2)} ppm</div>
+              <div className="font-bold text-slate-800 mt-0.5">{co.peakStr}</div>
             </div>
             <div>
               <div className="text-[10px] text-slate-400">Low</div>
-              <div className="font-bold text-slate-800 mt-0.5">{co.low.toFixed(2)} ppm</div>
+              <div className="font-bold text-slate-800 mt-0.5">{co.lowStr}</div>
             </div>
             <div>
               <div className="text-[10px] text-slate-400">Change</div>
-              <div className="font-bold text-slate-800 mt-0.5">
-                {co.delta >= 0 ? `+${co.delta.toFixed(2)}` : co.delta.toFixed(2)} ppm ({co.pct})
-              </div>
+              <div className="font-bold text-slate-800 mt-0.5">{co.changeStr}</div>
             </div>
           </div>
         </div>
@@ -383,14 +419,14 @@ export default function LiveTelemetryStreamSection() {
               </div>
               <span className="text-xs font-bold text-slate-900">PM2.5 AQI</span>
             </div>
-            <span className="bg-amber-50 text-amber-700 text-[10px] font-bold px-2.5 py-0.5 rounded-full border border-amber-200/60">
-              Worsening
+            <span className={clsx('text-[10px] font-bold px-2.5 py-0.5 rounded-full border', aqi.statusCls)}>
+              {aqi.status}
             </span>
           </div>
 
           <div className="flex items-baseline justify-between gap-2">
             <div className="text-3xl font-extrabold text-slate-900 font-sans tracking-tight">
-              {Math.round(aqi.current)} <span className="text-xs font-semibold text-slate-500">AQI</span>
+              {aqi.currentStr} {aqi.hasData && <span className="text-xs font-semibold text-slate-500">AQI</span>}
             </div>
             <WaveChart points={aqi.points} color="#8B5CF6" gradientId="waveAQI" />
           </div>
@@ -398,17 +434,15 @@ export default function LiveTelemetryStreamSection() {
           <div className="pt-3 border-t border-slate-200/60 grid grid-cols-3 text-[11px] text-slate-500">
             <div>
               <div className="text-[10px] text-slate-400">Peak</div>
-              <div className="font-bold text-slate-800 mt-0.5">{Math.round(aqi.peak)}</div>
+              <div className="font-bold text-slate-800 mt-0.5">{aqi.peakStr}</div>
             </div>
             <div>
               <div className="text-[10px] text-slate-400">Low</div>
-              <div className="font-bold text-slate-800 mt-0.5">{Math.round(aqi.low)}</div>
+              <div className="font-bold text-slate-800 mt-0.5">{aqi.lowStr}</div>
             </div>
             <div>
               <div className="text-[10px] text-slate-400">Change</div>
-              <div className="font-bold text-slate-800 mt-0.5">
-                {aqi.delta >= 0 ? `+${Math.round(aqi.delta)}` : Math.round(aqi.delta)} ({aqi.pct})
-              </div>
+              <div className="font-bold text-slate-800 mt-0.5">{aqi.changeStr}</div>
             </div>
           </div>
         </div>
@@ -428,28 +462,38 @@ export default function LiveTelemetryStreamSection() {
               'text-[10px] font-bold px-2.5 py-0.5 rounded-full border',
               isFlameDetected
                 ? 'bg-red-500 text-white border-red-600 animate-pulse'
-                : 'bg-emerald-50 text-emerald-700 border-emerald-200/60'
+                : isCotempLive
+                ? 'bg-emerald-50 text-emerald-700 border-emerald-200/60'
+                : 'bg-slate-100 text-slate-500 border-slate-200/80'
             )}>
-              {isFlameDetected ? 'Active' : 'Clear'}
+              {isFlameDetected ? 'Active' : isCotempLive ? 'Clear' : 'Offline'}
             </span>
           </div>
 
           <div className="flex items-center gap-3 py-1">
             <div className={clsx(
               'w-10 h-10 rounded-full flex items-center justify-center text-lg shadow-2xs',
-              isFlameDetected ? 'bg-red-100 text-red-600 animate-bounce' : 'bg-emerald-100 text-emerald-600'
+              isFlameDetected
+                ? 'bg-red-100 text-red-600 animate-bounce'
+                : isCotempLive
+                ? 'bg-emerald-100 text-emerald-600'
+                : 'bg-slate-100 text-slate-400'
             )}>
-              {isFlameDetected ? '🔥' : '✓'}
+              {isFlameDetected ? '🔥' : isCotempLive ? '✓' : '○'}
             </div>
             <div>
               <div className={clsx(
                 'text-lg font-extrabold tracking-tight',
-                isFlameDetected ? 'text-red-600' : 'text-slate-900'
+                isFlameDetected ? 'text-red-600' : isCotempLive ? 'text-slate-900' : 'text-slate-500'
               )}>
-                {isFlameDetected ? 'Flame Detected' : 'Clear'}
+                {isFlameDetected ? 'Flame Detected' : isCotempLive ? 'Clear' : 'Standby / Offline'}
               </div>
               <div className="text-[10px] text-slate-400">
-                {isFlameDetected ? 'High IR pulse triggered in sector' : 'Normal ambient spectrum'}
+                {isFlameDetected
+                  ? 'High IR pulse triggered in sector'
+                  : isCotempLive
+                  ? 'Normal ambient spectrum'
+                  : 'Awaiting ESP32-COTEMP on USB COM port'}
               </div>
             </div>
           </div>
@@ -457,7 +501,7 @@ export default function LiveTelemetryStreamSection() {
           <div className="pt-3 border-t border-slate-200/60 grid grid-cols-3 text-[11px] text-slate-500">
             <div>
               <div className="text-[10px] text-slate-400">Edge SLA</div>
-              <div className="font-bold text-slate-800 mt-0.5">Under 100 ms</div>
+              <div className="font-bold text-slate-800 mt-0.5">{isCotempLive ? 'Under 100 ms' : '--'}</div>
             </div>
             <div>
               <div className="text-[10px] text-slate-400">Siren</div>
@@ -468,7 +512,7 @@ export default function LiveTelemetryStreamSection() {
             <div>
               <div className="text-[10px] text-slate-400">Port COM7</div>
               <div className="font-bold text-slate-800 mt-0.5">
-                {usbConnected ? 'Active' : 'Ready'}
+                {usbConnected ? 'Active' : isCotempLive ? 'Connected' : 'Ready'}
               </div>
             </div>
           </div>
