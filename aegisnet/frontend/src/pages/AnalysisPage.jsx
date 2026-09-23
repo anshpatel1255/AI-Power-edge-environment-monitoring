@@ -2,9 +2,6 @@
 // Exact visual match to user reference photos (Qualcomm Edge-AI Sensor Fusion, Neural Trajectories, Danger Zones, Deconstruction & Pipeline)
 
 import { useState } from 'react'
-import {
-  AreaChart, Area, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine
-} from 'recharts'
 import clsx from 'clsx'
 
 // ── Multi-Hazard 2-Hour Ahead Forecast Trajectories ──────────────────────────
@@ -20,18 +17,18 @@ const TRAJECTORY_MODELS = {
     statisticalMargin: '±3.8 cm',
     architecture: 'LSTM Edge + 1D Hydro-Kinematic',
     crossTime: '+1h',
-    crossValue: 60,
-    domain: [35, 95],
+    crossValue: 62.0,
+    domain: [38, 86],
     data: [
-      { time: 'Now', actual: 44.0, envelopeLower: 42.0, envelopeUpper: 48.0 },
-      { time: '+15m', actual: 48.2, envelopeLower: 46.0, envelopeUpper: 54.0 },
-      { time: '+30m', actual: 52.8, envelopeLower: 50.0, envelopeUpper: 61.0 },
-      { time: '+45m', actual: 57.5, envelopeLower: 54.0, envelopeUpper: 68.0 },
+      { time: 'Now', actual: 44.0, envelopeLower: 42.0, envelopeUpper: 49.0 },
+      { time: '+15m', actual: 48.2, envelopeLower: 46.0, envelopeUpper: 55.0 },
+      { time: '+30m', actual: 52.8, envelopeLower: 50.0, envelopeUpper: 62.0 },
+      { time: '+45m', actual: 57.5, envelopeLower: 54.0, envelopeUpper: 68.5 },
       { time: '+1h', actual: 62.0, envelopeLower: 58.0, envelopeUpper: 74.0 },
-      { time: '+1h 15m', actual: 67.5, envelopeLower: 63.0, envelopeUpper: 79.0 },
-      { time: '+1h 30m', actual: 73.0, envelopeLower: 68.0, envelopeUpper: 83.0 },
-      { time: '+1h 45m', actual: 78.5, envelopeLower: 72.0, envelopeUpper: 87.0 },
-      { time: '+2h', actual: 84.2, envelopeLower: 76.0, envelopeUpper: 90.0 },
+      { time: '+1h 15m', actual: 67.5, envelopeLower: 63.0, envelopeUpper: 78.5 },
+      { time: '+1h 30m', actual: 73.0, envelopeLower: 68.0, envelopeUpper: 82.0 },
+      { time: '+1h 45m', actual: 78.5, envelopeLower: 72.0, envelopeUpper: 84.5 },
+      { time: '+2h', actual: 84.2, envelopeLower: 76.0, envelopeUpper: 85.0 },
     ],
   },
   thermal: {
@@ -46,17 +43,17 @@ const TRAJECTORY_MODELS = {
     architecture: 'TinyML Micro Arrhenius Thermal Flux',
     crossTime: '+45m',
     crossValue: 46,
-    domain: [25, 70],
+    domain: [28, 60],
     data: [
-      { time: 'Now', actual: 31.8, envelopeLower: 30.0, envelopeUpper: 34.0 },
-      { time: '+15m', actual: 36.5, envelopeLower: 34.0, envelopeUpper: 40.0 },
-      { time: '+30m', actual: 41.8, envelopeLower: 38.0, envelopeUpper: 46.5 },
-      { time: '+45m', actual: 46.0, envelopeLower: 42.0, envelopeUpper: 52.0 },
-      { time: '+1h', actual: 49.5, envelopeLower: 45.0, envelopeUpper: 57.0 },
-      { time: '+1h 15m', actual: 53.0, envelopeLower: 48.0, envelopeUpper: 61.0 },
-      { time: '+1h 30m', actual: 55.8, envelopeLower: 50.0, envelopeUpper: 64.0 },
-      { time: '+1h 45m', actual: 57.4, envelopeLower: 51.0, envelopeUpper: 66.0 },
-      { time: '+2h', actual: 58.6, envelopeLower: 52.0, envelopeUpper: 68.0 },
+      { time: 'Now', actual: 31.8, envelopeLower: 30.0, envelopeUpper: 35.0 },
+      { time: '+15m', actual: 36.5, envelopeLower: 34.0, envelopeUpper: 41.5 },
+      { time: '+30m', actual: 41.8, envelopeLower: 38.0, envelopeUpper: 47.5 },
+      { time: '+45m', actual: 46.0, envelopeLower: 42.0, envelopeUpper: 53.0 },
+      { time: '+1h', actual: 49.5, envelopeLower: 45.0, envelopeUpper: 56.5 },
+      { time: '+1h 15m', actual: 53.0, envelopeLower: 48.0, envelopeUpper: 58.0 },
+      { time: '+1h 30m', actual: 55.8, envelopeLower: 50.0, envelopeUpper: 59.0 },
+      { time: '+1h 45m', actual: 57.4, envelopeLower: 51.0, envelopeUpper: 59.2 },
+      { time: '+2h', actual: 58.6, envelopeLower: 52.0, envelopeUpper: 59.4 },
     ],
   },
   particulate: {
@@ -71,17 +68,17 @@ const TRAJECTORY_MODELS = {
     architecture: 'Gaussian Plume Advection-Diffusion',
     crossTime: '+1h',
     crossValue: 120,
-    domain: [20, 210],
+    domain: [35, 190],
     data: [
-      { time: 'Now', actual: 42.0, envelopeLower: 38.0, envelopeUpper: 48.0 },
-      { time: '+15m', actual: 65.0, envelopeLower: 58.0, envelopeUpper: 74.0 },
-      { time: '+30m', actual: 88.0, envelopeLower: 78.0, envelopeUpper: 104.0 },
-      { time: '+45m', actual: 108.0, envelopeLower: 94.0, envelopeUpper: 130.0 },
-      { time: '+1h', actual: 128.0, envelopeLower: 110.0, envelopeUpper: 154.0 },
+      { time: 'Now', actual: 42.0, envelopeLower: 38.0, envelopeUpper: 50.0 },
+      { time: '+15m', actual: 65.0, envelopeLower: 58.0, envelopeUpper: 78.0 },
+      { time: '+30m', actual: 88.0, envelopeLower: 78.0, envelopeUpper: 108.0 },
+      { time: '+45m', actual: 108.0, envelopeLower: 94.0, envelopeUpper: 134.0 },
+      { time: '+1h', actual: 128.0, envelopeLower: 110.0, envelopeUpper: 156.0 },
       { time: '+1h 15m', actual: 148.0, envelopeLower: 124.0, envelopeUpper: 172.0 },
-      { time: '+1h 30m', actual: 164.0, envelopeLower: 136.0, envelopeUpper: 184.0 },
-      { time: '+1h 45m', actual: 176.0, envelopeLower: 144.0, envelopeUpper: 194.0 },
-      { time: '+2h', actual: 184.0, envelopeLower: 150.0, envelopeUpper: 200.0 },
+      { time: '+1h 30m', actual: 164.0, envelopeLower: 136.0, envelopeUpper: 182.0 },
+      { time: '+1h 45m', actual: 176.0, envelopeLower: 144.0, envelopeUpper: 186.0 },
+      { time: '+2h', actual: 184.0, envelopeLower: 150.0, envelopeUpper: 187.0 },
     ],
   },
   chemical: {
@@ -96,43 +93,284 @@ const TRAJECTORY_MODELS = {
     architecture: 'PID Electrochemical Dispersion Model',
     crossTime: '+30m',
     crossValue: 38,
-    domain: [10, 85],
+    domain: [15, 75],
     data: [
-      { time: 'Now', actual: 18.0, envelopeLower: 16.0, envelopeUpper: 22.0 },
-      { time: '+15m', actual: 28.5, envelopeLower: 25.0, envelopeUpper: 34.0 },
-      { time: '+30m', actual: 38.0, envelopeLower: 32.0, envelopeUpper: 46.0 },
-      { time: '+45m', actual: 47.5, envelopeLower: 40.0, envelopeUpper: 56.0 },
-      { time: '+1h', actual: 56.0, envelopeLower: 46.0, envelopeUpper: 65.0 },
-      { time: '+1h 15m', actual: 63.5, envelopeLower: 51.0, envelopeUpper: 72.0 },
-      { time: '+1h 30m', actual: 68.0, envelopeLower: 54.0, envelopeUpper: 77.0 },
-      { time: '+1h 45m', actual: 70.8, envelopeLower: 56.0, envelopeUpper: 80.0 },
-      { time: '+2h', actual: 72.4, envelopeLower: 57.0, envelopeUpper: 82.0 },
+      { time: 'Now', actual: 18.0, envelopeLower: 16.0, envelopeUpper: 23.0 },
+      { time: '+15m', actual: 28.5, envelopeLower: 25.0, envelopeUpper: 36.0 },
+      { time: '+30m', actual: 38.0, envelopeLower: 32.0, envelopeUpper: 48.0 },
+      { time: '+45m', actual: 47.5, envelopeLower: 40.0, envelopeUpper: 58.0 },
+      { time: '+1h', actual: 56.0, envelopeLower: 46.0, envelopeUpper: 66.0 },
+      { time: '+1h 15m', actual: 63.5, envelopeLower: 51.0, envelopeUpper: 70.0 },
+      { time: '+1h 30m', actual: 68.0, envelopeLower: 54.0, envelopeUpper: 72.5 },
+      { time: '+1h 45m', actual: 70.8, envelopeLower: 56.0, envelopeUpper: 73.2 },
+      { time: '+2h', actual: 72.4, envelopeLower: 57.0, envelopeUpper: 73.5 },
     ],
   },
+}
+
+// ── Exact Vector SVG Neural Trajectory Chart (Matches reference photo media_1790142246144) ───
+function NeuralTrajectoryChart({ traj }) {
+  const [hoveredIndex, setHoveredIndex] = useState(null)
+
+  const width = 1000
+  const height = 260
+  const padLeft = 24
+  const padRight = 24
+  const yTop = 32
+  const yBottom = 214
+  const plotWidth = width - padLeft - padRight
+  const plotHeight = yBottom - yTop
+
+  const [minVal, maxVal] = traj.domain
+
+  const valToY = (v) => {
+    const ratio = Math.max(0, Math.min(1, (v - minVal) / (maxVal - minVal)))
+    return yBottom - ratio * plotHeight
+  }
+
+  const points = traj.data.map((d, i) => ({
+    ...d,
+    index: i,
+    x: padLeft + (i / (traj.data.length - 1)) * plotWidth,
+    y: valToY(d.actual),
+    yUpper: valToY(d.envelopeUpper),
+    yLower: valToY(d.envelopeLower),
+  }))
+
+  // Smooth cubic Bezier spline through points (Catmull-Rom)
+  const getSplinePath = (pts, keyY = 'y') => {
+    if (!pts || pts.length === 0) return ''
+    if (pts.length === 1) return `M ${pts[0].x} ${pts[0][keyY]}`
+    let d = `M ${pts[0].x.toFixed(1)} ${pts[0][keyY].toFixed(1)}`
+    for (let i = 0; i < pts.length - 1; i++) {
+      const p0 = i > 0 ? pts[i - 1] : pts[i]
+      const p1 = pts[i]
+      const p2 = pts[i + 1]
+      const p3 = i < pts.length - 2 ? pts[i + 2] : p2
+      const cp1x = p1.x + (p2.x - p0.x) / 6
+      const cp1y = p1[keyY] + (p2[keyY] - p0[keyY]) / 6
+      const cp2x = p2.x - (p3.x - p1.x) / 6
+      const cp2y = p2[keyY] - (p3[keyY] - p1[keyY]) / 6
+      d += ` C ${cp1x.toFixed(1)} ${cp1y.toFixed(1)}, ${cp2x.toFixed(1)} ${cp2y.toFixed(1)}, ${p2.x.toFixed(1)} ${p2[keyY].toFixed(1)}`
+    }
+    return d
+  }
+
+  const linePath = getSplinePath(points, 'y')
+
+  // Upper Envelope polygon (ice-blue shaded band above curve)
+  const upperForward = getSplinePath(points, 'yUpper')
+  const reversedPoints = [...points].reverse()
+  const actualBackward = getSplinePath(reversedPoints, 'y').replace(/^M [^ ]+ [^ ]+/, '')
+  const envelopePath = `${upperForward} L ${points[points.length - 1].x.toFixed(1)} ${points[points.length - 1].y.toFixed(1)} ${actualBackward} Z`
+
+  // Lower Rose Shading under actual line down to yBottom
+  const roseAreaPath = `${linePath} L ${points[points.length - 1].x.toFixed(1)} ${yBottom} L ${points[0].x.toFixed(1)} ${yBottom} Z`
+
+  // Crossing marker at +1h (index 4 or matched crossTime)
+  const crossPoint = points.find((p) => p.time === (traj.crossTime || '+1h')) || points[4]
+  const lastPoint = points[points.length - 1]
+
+  const activePoint = hoveredIndex !== null ? points[hoveredIndex] : null
+
+  return (
+    <div className="relative w-full select-none">
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        className="w-full h-auto overflow-visible"
+        style={{ maxHeight: '310px' }}
+      >
+        <defs>
+          {/* Subtle rose/pink gradient under trajectory */}
+          <linearGradient id="roseGradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#f43f5e" stopOpacity={0.22} />
+            <stop offset="65%" stopColor="#fda4af" stopOpacity={0.07} />
+            <stop offset="100%" stopColor="#ffffff" stopOpacity={0.0} />
+          </linearGradient>
+
+          {/* Ice-blue envelope fill */}
+          <linearGradient id="envelopeGradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#bae6fd" stopOpacity={0.6} />
+            <stop offset="100%" stopColor="#e0f2fe" stopOpacity={0.35} />
+          </linearGradient>
+        </defs>
+
+        {/* 3 Horizontal Subtle Grid Lines */}
+        <line
+          x1={padLeft - 4}
+          y1={yTop}
+          x2={width - padRight + 4}
+          y2={yTop}
+          stroke="#e2e8f0"
+          strokeWidth="1"
+          strokeDasharray="4 4"
+        />
+        <line
+          x1={padLeft - 4}
+          y1={(yTop + yBottom) / 2}
+          x2={width - padRight + 4}
+          y2={(yTop + yBottom) / 2}
+          stroke="#f1f5f9"
+          strokeWidth="1"
+          strokeDasharray="4 4"
+        />
+        <line
+          x1={padLeft - 4}
+          y1={yBottom}
+          x2={width - padRight + 4}
+          y2={yBottom}
+          stroke="#f1f5f9"
+          strokeWidth="1"
+          strokeDasharray="4 4"
+        />
+
+        {/* Vertical Alert Marker Line at +1h */}
+        {crossPoint && (
+          <line
+            x1={crossPoint.x}
+            y1={yTop}
+            x2={crossPoint.x}
+            y2={yBottom + 4}
+            stroke="#93c5fd"
+            strokeWidth="1.8"
+            strokeDasharray="4 4"
+          />
+        )}
+
+        {/* Shaded Upper Blue Gaussian Uncertainty Envelope */}
+        <path d={envelopePath} fill="url(#envelopeGradient)" />
+
+        {/* Shaded Lower Rose Gradient under Red Curve */}
+        <path d={roseAreaPath} fill="url(#roseGradient)" />
+
+        {/* Bold Red Trajectory Line */}
+        <path
+          d={linePath}
+          fill="none"
+          stroke="#ef4444"
+          strokeWidth="3.2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+
+        {/* Crossing Indicator Marker at +1h (Blue Hollow Circle with white center) */}
+        {crossPoint && (
+          <g>
+            <circle
+              cx={crossPoint.x}
+              cy={crossPoint.y}
+              r={6.5}
+              fill="#ffffff"
+              stroke="#2563eb"
+              strokeWidth={3.5}
+            />
+          </g>
+        )}
+
+        {/* Peak Indicator Marker at +2h (Solid Red Circle) */}
+        {lastPoint && (
+          <circle
+            cx={lastPoint.x}
+            cy={lastPoint.y}
+            r={5.5}
+            fill="#ef4444"
+          />
+        )}
+
+        {/* Hover Guide Line and Point Highlight */}
+        {activePoint && (
+          <g>
+            <line
+              x1={activePoint.x}
+              y1={yTop}
+              x2={activePoint.x}
+              y2={yBottom}
+              stroke="#64748b"
+              strokeWidth="1"
+              strokeDasharray="2 2"
+              opacity={0.5}
+            />
+            <circle
+              cx={activePoint.x}
+              cy={activePoint.y}
+              r={7}
+              fill="#ef4444"
+              opacity={0.25}
+            />
+            <circle
+              cx={activePoint.x}
+              cy={activePoint.y}
+              r={4}
+              fill="#ef4444"
+            />
+          </g>
+        )}
+
+        {/* Interactive Hover Hit Areas for each point */}
+        {points.map((p, i) => (
+          <rect
+            key={p.time}
+            x={p.x - plotWidth / (points.length - 1) / 2}
+            y={0}
+            width={plotWidth / (points.length - 1)}
+            height={height}
+            fill="transparent"
+            className="cursor-pointer"
+            onMouseEnter={() => setHoveredIndex(i)}
+            onMouseLeave={() => setHoveredIndex(null)}
+          />
+        ))}
+
+        {/* Bottom Monospace X-Axis Labels */}
+        {points.map((p, i) => {
+          let textAnchor = 'middle'
+          if (i === 0) textAnchor = 'start'
+          if (i === points.length - 1) textAnchor = 'end'
+          return (
+            <text
+              key={p.time}
+              x={p.x}
+              y={yBottom + 26}
+              textAnchor={textAnchor}
+              fill="#94a3b8"
+              fontSize="11"
+              fontWeight="500"
+              fontFamily="ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace"
+            >
+              {p.time}
+            </text>
+          )
+        })}
+      </svg>
+
+      {/* Floating Tooltip when point is hovered */}
+      {activePoint && (
+        <div
+          className="absolute z-20 pointer-events-none transform -translate-x-1/2 bg-slate-900 text-white px-3 py-2 rounded-xl text-xs font-mono shadow-xl border border-slate-700 space-y-0.5"
+          style={{
+            left: `${(activePoint.x / width) * 100}%`,
+            top: `${Math.max(8, (activePoint.y / height) * 100 - 24)}%`,
+          }}
+        >
+          <div className="text-cyan-400 font-bold flex items-center gap-1.5">
+            <span>{activePoint.time}</span>
+            <span className="text-[10px] text-slate-400 font-normal">Projection</span>
+          </div>
+          <div className="text-slate-200">
+            Val: <strong className="text-white font-bold">{activePoint.actual}</strong>
+          </div>
+          <div className="text-slate-400 text-[10px]">
+            Envelope: {activePoint.envelopeLower} – {activePoint.envelopeUpper}
+          </div>
+        </div>
+      )}
+    </div>
+  )
 }
 
 export default function AnalysisPage() {
   const [selectedTrajectory, setSelectedTrajectory] = useState('flood')
   const traj = TRAJECTORY_MODELS[selectedTrajectory] || TRAJECTORY_MODELS.flood
-
-  // Custom Dot component to highlight crossing point and peak on trajectory curve
-  const CustomDot = ({ cx, cy, index, payload }) => {
-    if (payload.time === '+1h') {
-      return (
-        <svg x={cx - 7} y={cy - 7} width={14} height={14}>
-          <circle cx="7" cy="7" r="6" fill="#ffffff" stroke="#2563eb" strokeWidth="3" />
-        </svg>
-      )
-    }
-    if (index === traj.data.length - 1) {
-      return (
-        <svg x={cx - 6} y={cy - 6} width={12} height={12}>
-          <circle cx="6" cy="6" r="5" fill="#ef4444" />
-        </svg>
-      )
-    }
-    return null
-  }
 
   return (
     <div className="min-h-screen bg-[#f4f7fb] text-slate-900 font-sans pb-24">
@@ -339,77 +577,9 @@ export default function AnalysisPage() {
             </div>
           </div>
 
-          {/* Chart Canvas */}
-          <div className="h-64 sm:h-72 w-full pt-2">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={traj.data} margin={{ top: 15, right: 20, left: -20, bottom: 0 }}>
-                <defs>
-                  {/* Gaussian uncertainty envelope gradient */}
-                  <linearGradient id="envelopeGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#dbeafe" stopOpacity={0.6} />
-                    <stop offset="95%" stopColor="#fee2e2" stopOpacity={0.4} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
-                <XAxis
-                  dataKey="time"
-                  tick={{ fontSize: 11, fill: '#94a3b8', fontFamily: 'monospace' }}
-                  axisLine={{ stroke: '#e2e8f0' }}
-                  tickLine={false}
-                />
-                <YAxis
-                  domain={traj.domain}
-                  tick={{ fontSize: 10, fill: '#94a3b8', fontFamily: 'monospace' }}
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <Tooltip
-                  content={({ active, payload }) => {
-                    if (active && payload && payload.length) {
-                      const d = payload[0].payload
-                      return (
-                        <div className="bg-slate-900 text-white p-2.5 rounded-xl text-xs font-mono shadow-xl space-y-1">
-                          <div className="text-cyan-400 font-bold">{d.time} Projection</div>
-                          <div>Trajectory: <b>{d.actual}</b></div>
-                          <div className="text-slate-400 text-[10px]">
-                            Range: {d.envelopeLower} – {d.envelopeUpper}
-                          </div>
-                        </div>
-                      )
-                    }
-                    return null
-                  }}
-                />
-                {/* Vertical crossing dashed line at +1h */}
-                <ReferenceLine x="+1h" stroke="#93c5fd" strokeDasharray="4 4" strokeWidth={1.5} />
-
-                {/* Shaded Gaussian Uncertainty Envelope */}
-                <Area
-                  type="monotone"
-                  dataKey="envelopeUpper"
-                  stroke="none"
-                  fill="url(#envelopeGrad)"
-                  fillOpacity={0.6}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="envelopeLower"
-                  stroke="none"
-                  fill="#ffffff"
-                  fillOpacity={1}
-                />
-
-                {/* Bold Red Trajectory Line */}
-                <Line
-                  type="monotone"
-                  dataKey="actual"
-                  stroke="#ef4444"
-                  strokeWidth={2.8}
-                  dot={<CustomDot />}
-                  isAnimationActive={false}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+          {/* Vector SVG Chart Canvas matching media_1790142246144 */}
+          <div className="w-full pt-1 pb-1">
+            <NeuralTrajectoryChart traj={traj} />
           </div>
 
           {/* 4 Stat Boxes Below Chart */}
