@@ -66,7 +66,7 @@ body.light-theme #navbar.scrolled {
 .nav-brand {
   display: flex;
   align-items: center;
-  gap: 0.85rem;
+  gap: 0.55rem;
   text-decoration: none;
 }
 
@@ -906,10 +906,12 @@ body.light-theme footer {
 <!-- TRANSPARENT NAVBAR -->
 <nav id="navbar">
   <a href="#" class="nav-brand">
-    <div class="nav-logo-icon">🛡️</div>
-    <div style="display:flex;align-items:center;">
-      <span class="nav-brand-title">AEGISNET</span>
-      <span class="sih-tag">SIH26178</span>
+    <div class="nav-logo-icon" style="padding:0;overflow:hidden;background:#000;display:flex;align-items:center;justify-content:center;border-radius:12px;border:1px solid rgba(255,255,255,0.2);box-shadow:0 3px 10px rgba(0,0,0,0.25);flex-shrink:0;">
+      <img src="/code-vortex-logo.png" alt="Code Vortex" style="width:100%;height:100%;object-fit:cover;" />
+    </div>
+    <div style="display:flex;align-items:center;gap:6px;">
+      <span class="nav-brand-title">CODE VORTEX</span>
+      <span class="sih-tag">AEGISNET</span>
     </div>
   </a>
 
@@ -922,7 +924,6 @@ body.light-theme footer {
   </ul>
 
   <div class="nav-actions">
-    <button class="theme-toggle-btn" id="themeToggle" title="Toggle Light/Dark Theme">🌙</button>
     <a href="/login" class="nav-cta" id="navLoginBtn">Launch Dashboard →</a>
   </div>
 </nav>
@@ -1173,9 +1174,115 @@ body.light-theme footer {
   </div>
 </div>
 
-<footer>
-  <div>🛡️ <strong>AegisNet</strong> — Smart India Hackathon 2026 (Problem SIH26178 · Qualcomm)</div>
-  <div style="margin-top:0.5rem;font-size:0.75rem;">AI-Powered Edge Environmental Monitoring for Floods, Wildfires &amp; Pollution</div>
+<footer class="site-footer" style="width: 100%; background: #ffffff; border-top: 1px solid #e2e8f0; font-family: inherit; user-select: none; position: relative; margin-top: 3.5rem;">
+  <!-- Sleek Top Accent Gradient Line -->
+  <div style="height: 3px; width: 100%; background: linear-gradient(90deg, #2563eb, #38bdf8, #22d3ee);"></div>
+
+  <div style="max-width: 1400px; margin: 0 auto; padding: 40px 32px 32px; box-sizing: border-box;">
+    <!-- Top Row: Brand & 4 Link Columns -->
+    <div style="display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 40px;">
+      
+      <!-- Left: Code Vortex Brand -->
+      <div style="display: flex; align-items: center; gap: 14px; flex-shrink: 0;">
+        <div style="width: 48px; height: 48px; border-radius: 14px; background: #000; overflow: hidden; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(15, 23, 42, 0.15); border: 1px solid #1e293b; flex-shrink: 0;">
+          <img src="/code-vortex-logo.png" alt="Code Vortex" style="width: 100%; height: 100%; object-fit: cover;" />
+        </div>
+        <div>
+          <div style="font-size: 20px; font-weight: 800; color: #2563eb; letter-spacing: -0.02em; line-height: 1.2;">
+            Code Vortex
+          </div>
+          <div style="font-size: 12px; color: #94a3b8; margin-top: 3px; font-weight: 500;">
+            Sense early. Respond faster.
+          </div>
+        </div>
+      </div>
+
+      <!-- Right: 4 Columns of Links -->
+      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 52px; font-size: 13px;">
+        <!-- Column 1 -->
+        <div style="display: flex; flex-direction: column; gap: 12px;">
+          <a href="/dashboard" style="color: #1e293b; font-weight: 700; text-decoration: none;">Dashboard</a>
+          <a href="/telemetry" style="color: #64748b; font-weight: 500; text-decoration: none;">Live Telemetry</a>
+          <a href="/map" style="color: #64748b; font-weight: 500; text-decoration: none;">Live Map</a>
+          <a href="/history" style="color: #64748b; font-weight: 500; text-decoration: none;">History</a>
+        </div>
+
+        <!-- Column 2 -->
+        <div style="display: flex; flex-direction: column; gap: 12px;">
+          <a href="/analysis" style="color: #1e293b; font-weight: 700; text-decoration: none;">AI Analysis</a>
+          <a href="/alerts" style="color: #64748b; font-weight: 500; text-decoration: none;">Alerts</a>
+          <a href="/fleet" style="color: #64748b; font-weight: 500; text-decoration: none;">Fleet</a>
+          <a href="/console" style="color: #64748b; font-weight: 500; text-decoration: none;">Console</a>
+        </div>
+
+        <!-- Column 3 -->
+        <div style="display: flex; flex-direction: column; gap: 12px;">
+          <a href="/public" style="color: #1e293b; font-weight: 700; text-decoration: none;">Public Portal</a>
+          <a href="/settings" style="color: #64748b; font-weight: 500; text-decoration: none;">Settings</a>
+          <a href="/public" style="color: #64748b; font-weight: 500; text-decoration: none;">Documentation</a>
+          <a href="/public" style="color: #64748b; font-weight: 500; text-decoration: none;">Help center</a>
+        </div>
+
+        <!-- Column 4 -->
+        <div style="display: flex; flex-direction: column; gap: 12px;">
+          <a href="/public" style="color: #1e293b; font-weight: 700; text-decoration: none;">Privacy Policy</a>
+          <a href="/public" style="color: #64748b; font-weight: 500; text-decoration: none;">Security</a>
+          <a href="/public" style="color: #64748b; font-weight: 500; text-decoration: none;">Terms of Service</a>
+          <a href="/public" style="color: #64748b; font-weight: 500; text-decoration: none;">Contact us</a>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Bottom Row: Centered Social Icons & Copyright -->
+    <div style="margin-top: 36px; padding-top: 28px; border-top: 1px solid #f1f5f9; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px;">
+      
+      <!-- 5 Circular Social Icons -->
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <!-- GitHub -->
+        <a href="https://github.com/anshpatel1255/AI-Power-edge-environment-monitoring" target="_blank" rel="noreferrer" style="width: 36px; height: 36px; border-radius: 50%; border: 1px solid #e2e8f0; background: #ffffff; display: flex; align-items: center; justify-content: center; color: #64748b; text-decoration: none; box-shadow: 0 1px 3px rgba(0,0,0,0.04);" title="GitHub">
+          <svg viewBox="0 0 24 24" fill="currentColor" style="width: 16px; height: 16px;">
+            <path fill-rule="evenodd" clip-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
+          </svg>
+        </a>
+
+        <!-- LinkedIn -->
+        <a href="https://linkedin.com" target="_blank" rel="noreferrer" style="width: 36px; height: 36px; border-radius: 50%; border: 1px solid #e2e8f0; background: #ffffff; display: flex; align-items: center; justify-content: center; color: #64748b; text-decoration: none; box-shadow: 0 1px 3px rgba(0,0,0,0.04);" title="LinkedIn">
+          <svg viewBox="0 0 24 24" fill="currentColor" style="width: 16px; height: 16px;">
+            <path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.28 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.75M6.88 8.56a1.68 1.68 0 0 0 1.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 0 0-1.69 1.69c0 .93.76 1.68 1.69 1.68m1.39 9.94v-8.37H5.5v8.37h2.77z" />
+          </svg>
+        </a>
+
+        <!-- Twitter / X -->
+        <a href="https://twitter.com" target="_blank" rel="noreferrer" style="width: 36px; height: 36px; border-radius: 50%; border: 1px solid #e2e8f0; background: #ffffff; display: flex; align-items: center; justify-content: center; color: #64748b; text-decoration: none; box-shadow: 0 1px 3px rgba(0,0,0,0.04);" title="Twitter / X">
+          <svg viewBox="0 0 24 24" fill="currentColor" style="width: 14px; height: 14px;">
+            <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
+          </svg>
+        </a>
+
+        <!-- YouTube -->
+        <a href="https://youtube.com" target="_blank" rel="noreferrer" style="width: 36px; height: 36px; border-radius: 50%; border: 1px solid #e2e8f0; background: #ffffff; display: flex; align-items: center; justify-content: center; color: #64748b; text-decoration: none; box-shadow: 0 1px 3px rgba(0,0,0,0.04);" title="YouTube">
+          <svg viewBox="0 0 24 24" fill="currentColor" style="width: 16px; height: 16px;">
+            <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
+          </svg>
+        </a>
+
+        <!-- Mail -->
+        <a href="mailto:support@codevortex.org" style="width: 36px; height: 36px; border-radius: 50%; border: 1px solid #e2e8f0; background: #ffffff; display: flex; align-items: center; justify-content: center; color: #64748b; text-decoration: none; box-shadow: 0 1px 3px rgba(0,0,0,0.04);" title="Contact Support">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 16px; height: 16px;">
+            <rect width="20" height="16" x="2" y="4" rx="2" />
+            <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" />
+          </svg>
+        </a>
+      </div>
+
+      <!-- Copyright -->
+      <p style="font-size: 12px; color: #94a3b8; font-weight: 400; text-align: center; margin: 0;">
+        © 2026 <strong style="color: #334155; font-weight: 600;">Code Vortex</strong>. All rights reserved.
+      </p>
+    </div>
+
+  </div>
 </footer>
 
 <script>
