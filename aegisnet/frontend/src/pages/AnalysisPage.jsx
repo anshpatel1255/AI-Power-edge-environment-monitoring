@@ -1,603 +1,976 @@
-// pages/AnalysisPage.jsx — AI Edge-Correlation Pipeline, Predictive Trajectories & Telemetry Streams
+// pages/AnalysisPage.jsx — AI Environmental Analysis & Explainability
+// Exact visual match to user reference photos (Qualcomm Edge-AI Sensor Fusion, Neural Trajectories, Danger Zones, Deconstruction & Pipeline)
+
 import { useState } from 'react'
-import { useStore } from '../store/useStore'
 import {
-  AreaChart, Area, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
+  AreaChart, Area, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine
 } from 'recharts'
 import clsx from 'clsx'
 
 // ── Multi-Hazard 2-Hour Ahead Forecast Trajectories ──────────────────────────
-const PREDICTIVE_TRAJECTORIES = {
+const TRAJECTORY_MODELS = {
   flood: {
     id: 'flood',
-    name: 'Flood Water Crest (cm)',
-    unit: 'cm',
-    color: '#06b6d4',
-    alertColor: '#ef4444',
-    gradientId: 'floodForecastGrad',
+    name: 'Flood',
+    icon: '💧',
+    param: 'Flood Water Crest (cm)',
+    color: '#ef4444',
     peak: '84.2 cm (+75.4%)',
     leadTime: '42 min lead',
-    confidence: '±3.8 cm',
-    model: 'LSTM Edge + 1D Hydro-Kinematic',
-    domain: [40, 95],
+    statisticalMargin: '±3.8 cm',
+    architecture: 'LSTM Edge + 1D Hydro-Kinematic',
+    crossTime: '+1h',
+    crossValue: 60,
+    domain: [35, 95],
     data: [
-      { time: 'Now',     actual: 48.0, lower: 48.0, upper: 48.0, delta: '+0.0' },
-      { time: '+15m',   actual: 51.2, lower: 50.0, upper: 53.5, delta: '+3.2' },
-      { time: '+30m',   actual: null, lower: 52.8, upper: 59.0, delta: '+6.5' },
-      { time: '+45m',   actual: null, lower: 56.5, upper: 65.2, delta: '+9.8' },
-      { time: '+1h',    actual: null, lower: 60.2, upper: 72.0, delta: '+14.0' },
-      { time: '+1h 15m',actual: null, lower: 64.0, upper: 78.5, delta: '+18.5' },
-      { time: '+1h 30m',actual: null, lower: 67.5, upper: 82.8, delta: '+22.0' },
-      { time: '+1h 45m',actual: null, lower: 69.8, upper: 84.2, delta: '+24.2' },
-      { time: '+2h',    actual: null, lower: 71.0, upper: 83.5, delta: '+23.0' },
+      { time: 'Now', actual: 44.0, envelopeLower: 42.0, envelopeUpper: 48.0 },
+      { time: '+15m', actual: 48.2, envelopeLower: 46.0, envelopeUpper: 54.0 },
+      { time: '+30m', actual: 52.8, envelopeLower: 50.0, envelopeUpper: 61.0 },
+      { time: '+45m', actual: 57.5, envelopeLower: 54.0, envelopeUpper: 68.0 },
+      { time: '+1h', actual: 62.0, envelopeLower: 58.0, envelopeUpper: 74.0 },
+      { time: '+1h 15m', actual: 67.5, envelopeLower: 63.0, envelopeUpper: 79.0 },
+      { time: '+1h 30m', actual: 73.0, envelopeLower: 68.0, envelopeUpper: 83.0 },
+      { time: '+1h 45m', actual: 78.5, envelopeLower: 72.0, envelopeUpper: 87.0 },
+      { time: '+2h', actual: 84.2, envelopeLower: 76.0, envelopeUpper: 90.0 },
     ],
   },
-  fire: {
-    id: 'fire',
-    name: 'Thermal / Forest IR (°C)',
-    unit: '°C',
+  thermal: {
+    id: 'thermal',
+    name: 'Thermal',
+    icon: '🔥',
+    param: 'Thermal / Forest IR (°C)',
     color: '#f97316',
-    alertColor: '#dc2626',
-    gradientId: 'fireForecastGrad',
     peak: '58.6 °C (+84%)',
     leadTime: '18 min lead',
-    confidence: '±1.9 °C',
-    model: 'TinyML Micro Arrhenius Thermal Flux',
-    domain: [25, 65],
+    statisticalMargin: '±1.9 °C',
+    architecture: 'TinyML Micro Arrhenius Thermal Flux',
+    crossTime: '+45m',
+    crossValue: 46,
+    domain: [25, 70],
     data: [
-      { time: 'Now',     actual: 31.8, lower: 31.8, upper: 31.8, delta: '+0.0' },
-      { time: '+15m',   actual: 34.5, lower: 33.2, upper: 36.4, delta: '+2.7' },
-      { time: '+30m',   actual: null, lower: 35.8, upper: 42.0, delta: '+5.5' },
-      { time: '+45m',   actual: null, lower: 38.0, upper: 47.5, delta: '+9.2' },
-      { time: '+1h',    actual: null, lower: 41.2, upper: 53.0, delta: '+13.5' },
-      { time: '+1h 15m',actual: null, lower: 43.5, upper: 56.8, delta: '+16.8' },
-      { time: '+1h 30m',actual: null, lower: 44.8, upper: 58.6, delta: '+18.0' },
-      { time: '+1h 45m',actual: null, lower: 43.0, upper: 57.2, delta: '+15.5' },
-      { time: '+2h',    actual: null, lower: 41.5, upper: 54.0, delta: '+12.2' },
+      { time: 'Now', actual: 31.8, envelopeLower: 30.0, envelopeUpper: 34.0 },
+      { time: '+15m', actual: 36.5, envelopeLower: 34.0, envelopeUpper: 40.0 },
+      { time: '+30m', actual: 41.8, envelopeLower: 38.0, envelopeUpper: 46.5 },
+      { time: '+45m', actual: 46.0, envelopeLower: 42.0, envelopeUpper: 52.0 },
+      { time: '+1h', actual: 49.5, envelopeLower: 45.0, envelopeUpper: 57.0 },
+      { time: '+1h 15m', actual: 53.0, envelopeLower: 48.0, envelopeUpper: 61.0 },
+      { time: '+1h 30m', actual: 55.8, envelopeLower: 50.0, envelopeUpper: 64.0 },
+      { time: '+1h 45m', actual: 57.4, envelopeLower: 51.0, envelopeUpper: 66.0 },
+      { time: '+2h', actual: 58.6, envelopeLower: 52.0, envelopeUpper: 68.0 },
     ],
   },
-  air: {
-    id: 'air',
-    name: 'Particulate PM2.5 (µg/m³)',
-    unit: 'µg/m³',
+  particulate: {
+    id: 'particulate',
+    name: 'Particulate',
+    icon: '📊',
+    param: 'Particulate PM2.5 (µg/m³)',
     color: '#8b5cf6',
-    alertColor: '#c026d3',
-    gradientId: 'airForecastGrad',
     peak: '184 µg/m³ (+162%)',
     leadTime: '35 min lead',
-    confidence: '±8.5 µg/m³',
-    model: 'Gaussian Plume Advection-Diffusion',
+    statisticalMargin: '±8.5 µg/m³',
+    architecture: 'Gaussian Plume Advection-Diffusion',
+    crossTime: '+1h',
+    crossValue: 120,
     domain: [20, 210],
     data: [
-      { time: 'Now',     actual: 42.0, lower: 42.0, upper: 42.0, delta: '+0' },
-      { time: '+15m',   actual: 58.0, lower: 52.0, upper: 68.0, delta: '+16' },
-      { time: '+30m',   actual: null, lower: 68.0, upper: 98.0, delta: '+34' },
-      { time: '+45m',   actual: null, lower: 84.0, upper: 132.0, delta: '+56' },
-      { time: '+1h',    actual: null, lower: 98.0, upper: 164.0, delta: '+78' },
-      { time: '+1h 15m',actual: null, lower: 112.0, upper: 184.0, delta: '+94' },
-      { time: '+1h 30m',actual: null, lower: 105.0, upper: 178.0, delta: '+88' },
-      { time: '+1h 45m',actual: null, lower: 94.0, upper: 156.0, delta: '+72' },
-      { time: '+2h',    actual: null, lower: 82.0, upper: 138.0, delta: '+54' },
+      { time: 'Now', actual: 42.0, envelopeLower: 38.0, envelopeUpper: 48.0 },
+      { time: '+15m', actual: 65.0, envelopeLower: 58.0, envelopeUpper: 74.0 },
+      { time: '+30m', actual: 88.0, envelopeLower: 78.0, envelopeUpper: 104.0 },
+      { time: '+45m', actual: 108.0, envelopeLower: 94.0, envelopeUpper: 130.0 },
+      { time: '+1h', actual: 128.0, envelopeLower: 110.0, envelopeUpper: 154.0 },
+      { time: '+1h 15m', actual: 148.0, envelopeLower: 124.0, envelopeUpper: 172.0 },
+      { time: '+1h 30m', actual: 164.0, envelopeLower: 136.0, envelopeUpper: 184.0 },
+      { time: '+1h 45m', actual: 176.0, envelopeLower: 144.0, envelopeUpper: 194.0 },
+      { time: '+2h', actual: 184.0, envelopeLower: 150.0, envelopeUpper: 200.0 },
     ],
   },
-  chem: {
-    id: 'chem',
-    name: 'Chemical VOC (ppm)',
-    unit: 'ppm',
+  chemical: {
+    id: 'chemical',
+    name: 'Chemical',
+    icon: '☢️',
+    param: 'Chemical VOC (ppm)',
     color: '#eab308',
-    alertColor: '#ea580c',
-    gradientId: 'chemForecastGrad',
     peak: '72.4 ppm (Hazmat)',
     leadTime: '15 min lead',
-    confidence: '±4.2 ppm',
-    model: 'PID Electrochemical Dispersion Model',
+    statisticalMargin: '±4.2 ppm',
+    architecture: 'PID Electrochemical Dispersion Model',
+    crossTime: '+30m',
+    crossValue: 38,
     domain: [10, 85],
     data: [
-      { time: 'Now',     actual: 18.0, lower: 18.0, upper: 18.0, delta: '+0.0' },
-      { time: '+15m',   actual: 24.5, lower: 22.0, upper: 28.5, delta: '+6.5' },
-      { time: '+30m',   actual: null, lower: 28.0, upper: 42.0, delta: '+14.0' },
-      { time: '+45m',   actual: null, lower: 34.5, upper: 56.8, delta: '+22.5' },
-      { time: '+1h',    actual: null, lower: 39.0, upper: 68.5, delta: '+31.0' },
-      { time: '+1h 15m',actual: null, lower: 42.5, upper: 72.4, delta: '+34.4' },
-      { time: '+1h 30m',actual: null, lower: 38.0, upper: 66.0, delta: '+28.0' },
-      { time: '+1h 45m',actual: null, lower: 32.5, upper: 54.2, delta: '+20.5' },
-      { time: '+2h',    actual: null, lower: 26.0, upper: 44.0, delta: '+12.0' },
+      { time: 'Now', actual: 18.0, envelopeLower: 16.0, envelopeUpper: 22.0 },
+      { time: '+15m', actual: 28.5, envelopeLower: 25.0, envelopeUpper: 34.0 },
+      { time: '+30m', actual: 38.0, envelopeLower: 32.0, envelopeUpper: 46.0 },
+      { time: '+45m', actual: 47.5, envelopeLower: 40.0, envelopeUpper: 56.0 },
+      { time: '+1h', actual: 56.0, envelopeLower: 46.0, envelopeUpper: 65.0 },
+      { time: '+1h 15m', actual: 63.5, envelopeLower: 51.0, envelopeUpper: 72.0 },
+      { time: '+1h 30m', actual: 68.0, envelopeLower: 54.0, envelopeUpper: 77.0 },
+      { time: '+1h 45m', actual: 70.8, envelopeLower: 56.0, envelopeUpper: 80.0 },
+      { time: '+2h', actual: 72.4, envelopeLower: 57.0, envelopeUpper: 82.0 },
     ],
   },
-}
-
-// ── Sparkline Trend Mock Data for Telemetry Stream Cards ─────────────────────
-const STREAM_SPARKLINES = {
-  temp: [
-    { v: 28.2 }, { v: 28.8 }, { v: 29.5 }, { v: 30.1 }, { v: 31.4 },
-    { v: 32.4 }, { v: 33.8 }, { v: 34.6 }, { v: 35.1 }, { v: 34.2 }, { v: 32.4 }
-  ],
-  humidity: [
-    { v: 76 }, { v: 74 }, { v: 72 }, { v: 70 }, { v: 69 },
-    { v: 68 }, { v: 67 }, { v: 66 }, { v: 68 }, { v: 69 }, { v: 68 }
-  ],
-  aqi: [
-    { v: 88 }, { v: 94 }, { v: 106 }, { v: 118 }, { v: 125 },
-    { v: 134 }, { v: 140 }, { v: 148 }, { v: 152 }, { v: 146 }, { v: 142 }
-  ],
-  fire: [
-    { v: 12 }, { v: 14 }, { v: 13 }, { v: 15 }, { v: 18 },
-    { v: 16 }, { v: 15 }, { v: 19 }, { v: 17 }, { v: 16 }, { v: 15 }
-  ],
-  water: [
-    { v: 0.62 }, { v: 0.68 }, { v: 0.74 }, { v: 0.85 }, { v: 0.94 },
-    { v: 1.05 }, { v: 1.14 }, { v: 1.22 }, { v: 1.28 }, { v: 1.29 }, { v: 1.28 }
-  ],
-  gas: [
-    { v: 380 }, { v: 388 }, { v: 395 }, { v: 402 }, { v: 408 },
-    { v: 415 }, { v: 420 }, { v: 418 }, { v: 414 }, { v: 410 }, { v: 412 }
-  ],
-}
-
-// ── Mini Sparkline Area Chart Component ──────────────────────────────────────
-function MiniSparkline({ data, color, gradientId }) {
-  return (
-    <div className="w-full h-12">
-      <ResponsiveContainer width="100%" height="100%">
-        <AreaChart data={data} margin={{ top: 2, right: 0, left: 0, bottom: 0 }}>
-          <defs>
-            <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor={color} stopOpacity={0.45} />
-              <stop offset="90%" stopColor={color} stopOpacity={0.0} />
-            </linearGradient>
-          </defs>
-          <Area
-            type="monotone"
-            dataKey="v"
-            stroke={color}
-            strokeWidth={2.5}
-            fill={`url(#${gradientId})`}
-            dot={false}
-            isAnimationActive={true}
-          />
-        </AreaChart>
-      </ResponsiveContainer>
-    </div>
-  )
-}
-
-// ── Custom Glassmorphic Tooltip for Forecast ─────────────────────────────────
-function ForecastTooltip({ active, payload, label, unit }) {
-  if (active && payload && payload.length) {
-    const data = payload[0]?.payload
-    return (
-      <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl border border-white/80 dark:border-slate-700/80 rounded-2xl p-3 shadow-xl text-xs font-mono space-y-1.5 min-w-[170px]">
-        <div className="font-bold text-slate-800 dark:text-slate-100 flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-1">
-          <span>{label}</span>
-          <span className="text-[10px] text-blue-600 dark:text-cyan-400 font-bold">{data?.delta} {unit}</span>
-        </div>
-        <div className="space-y-1 text-[11px]">
-          <div className="flex items-center justify-between text-red-600 dark:text-red-400">
-            <span>Projected Crest:</span>
-            <b className="font-bold">{data?.upper} {unit}</b>
-          </div>
-          <div className="flex items-center justify-between text-cyan-600 dark:text-cyan-300">
-            <span>Baseline Path:</span>
-            <b>{data?.lower} {unit}</b>
-          </div>
-          {data?.actual != null && (
-            <div className="flex items-center justify-between text-emerald-600 dark:text-emerald-400 font-bold border-t border-slate-100 dark:border-slate-800 pt-1">
-              <span>Actual Sensor:</span>
-              <b>{data?.actual} {unit}</b>
-            </div>
-          )}
-        </div>
-      </div>
-    )
-  }
-  return null
 }
 
 export default function AnalysisPage() {
-  const suppressionLog = useStore((s) => s.suppressionLog)
-  const [selectedHazard, setSelectedHazard] = useState('flood')
+  const [selectedTrajectory, setSelectedTrajectory] = useState('flood')
+  const traj = TRAJECTORY_MODELS[selectedTrajectory] || TRAJECTORY_MODELS.flood
 
-  const activeTraj = PREDICTIVE_TRAJECTORIES[selectedHazard] || PREDICTIVE_TRAJECTORIES.flood
+  // Custom Dot component to highlight crossing point and peak on trajectory curve
+  const CustomDot = ({ cx, cy, index, payload }) => {
+    if (payload.time === '+1h') {
+      return (
+        <svg x={cx - 7} y={cy - 7} width={14} height={14}>
+          <circle cx="7" cy="7" r="6" fill="#ffffff" stroke="#2563eb" strokeWidth="3" />
+        </svg>
+      )
+    }
+    if (index === traj.data.length - 1) {
+      return (
+        <svg x={cx - 6} y={cy - 6} width={12} height={12}>
+          <circle cx="6" cy="6" r="5" fill="#ef4444" />
+        </svg>
+      )
+    }
+    return null
+  }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 lg:px-6 py-6 space-y-6 font-sans">
-      {/* ─── Header Strip with Glassmorphism ───────────────────────────── */}
-      <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-white/80 dark:border-slate-800 rounded-3xl p-6 shadow-[0_10px_30px_-5px_rgba(15,23,42,0.05),inset_0_1px_2px_rgba(255,255,255,0.8)] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-600 via-sky-500 to-cyan-500 text-white flex items-center justify-center text-2xl font-bold flex-shrink-0 shadow-md shadow-blue-500/25 ring-1 ring-white/30">
-            🧠
-          </div>
-          <div>
-            <h1 className="text-xl font-extrabold text-slate-900 dark:text-white tracking-tight">
-              AI Environmental <span className="bg-gradient-to-r from-blue-600 via-sky-600 to-cyan-500 bg-clip-text text-transparent">Analysis & Explainability</span>
-            </h1>
-            <p className="text-xs text-slate-500 dark:text-slate-400 font-mono mt-0.5">
-              Qualcomm Edge-AI Sensor Fusion, Cross-Node Spatial Reinforcement, & Neural Trajectory Forecasting
-            </p>
-          </div>
-        </div>
+    <div className="min-h-screen bg-[#f4f7fb] text-slate-900 font-sans pb-24">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 space-y-6">
 
-        <div className="flex items-center gap-2.5 text-xs font-mono flex-wrap">
-          <div className="bg-slate-100/80 dark:bg-slate-800/80 border border-white/60 dark:border-slate-700/60 px-3.5 py-1.5 rounded-full shadow-xs">
-            <span className="text-slate-500 dark:text-slate-400">Model Engine:</span>{' '}
-            <b className="text-blue-600 dark:text-cyan-400">QNN TFLite v2.4</b>
-          </div>
-          <div className="bg-slate-100/80 dark:bg-slate-800/80 border border-white/60 dark:border-slate-700/60 px-3.5 py-1.5 rounded-full shadow-xs">
-            <span className="text-slate-500 dark:text-slate-400">Confidence:</span>{' '}
-            <b className="text-emerald-600 dark:text-emerald-400">89.4% (R²)</b>
-          </div>
-        </div>
-      </div>
-
-      {/* ─── 1. Telemetry Streams (6 Glass Cards with Luminous Wave Charts) ─ */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <h2 className="text-sm font-extrabold text-slate-900 dark:text-white font-mono uppercase tracking-wider">
-              Telemetry Streams
-            </h2>
-            <span className="bg-emerald-500/15 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-[10px] font-mono font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shadow-xs">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              REALTIME SYNC (15)
-            </span>
-          </div>
-          <span className="text-[11px] text-slate-400 font-mono">Filter: All Zones</span>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3.5">
-          {/* Card 1: Temperature */}
-          <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-white/80 dark:border-slate-800 rounded-3xl p-4.5 space-y-2.5 shadow-[0_4px_20px_-2px_rgba(15,23,42,0.05),inset_0_1px_2px_rgba(255,255,255,0.8)] hover:shadow-lg hover:-translate-y-0.5 transition-all">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider flex items-center gap-1">
-                <span>🌡️</span> TEMPERATURE
-              </span>
-              <span className="bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 border border-emerald-200/80 dark:border-emerald-800/60 text-[9px] font-mono font-bold px-2 py-0.5 rounded-full">
-                NORMAL
-              </span>
+        {/* ─── 1. HEADER CARD ────────────────────────────────────────────── */}
+        <div className="bg-white border border-slate-100 rounded-3xl p-5 sm:p-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-blue-500 to-cyan-500 text-white flex items-center justify-center text-2xl shadow-sm flex-shrink-0">
+              🧠
             </div>
-            <div className="flex items-baseline justify-between">
-              <div className="text-2xl font-mono font-bold text-slate-900 dark:text-white">32.4°C</div>
-              <div className="text-[10px] font-mono font-bold text-emerald-600">↗ +0.8°C/h</div>
+            <div>
+              <h1 className="text-xl sm:text-[22px] font-black text-slate-900 tracking-tight leading-snug">
+                AI Environmental <span className="text-blue-600">Analysis & Explainability</span>
+              </h1>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Qualcomm Edge-AI sensor fusion, cross-node spatial reinforcement, & neural trajectory forecasting
+              </p>
             </div>
-            <div className="text-[10px] text-slate-400 font-mono">
-              Peak: 35.1°C | Low: 21.0°C
-            </div>
-            <MiniSparkline data={STREAM_SPARKLINES.temp} color="#10b981" gradientId="sparkTemp" />
           </div>
 
-          {/* Card 2: Relative Humidity */}
-          <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-white/80 dark:border-slate-800 rounded-3xl p-4.5 space-y-2.5 shadow-[0_4px_20px_-2px_rgba(15,23,42,0.05),inset_0_1px_2px_rgba(255,255,255,0.8)] hover:shadow-lg hover:-translate-y-0.5 transition-all">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider flex items-center gap-1">
-                <span>💧</span> HUMIDITY
-              </span>
-              <span className="bg-amber-50 dark:bg-amber-950/50 text-amber-600 dark:text-amber-400 border border-amber-200/80 dark:border-amber-800/60 text-[9px] font-mono font-bold px-2 py-0.5 rounded-full">
-                ELEVATED
-              </span>
+          <div className="flex items-center gap-2.5 flex-wrap">
+            <div className="bg-slate-50 border border-slate-200/90 rounded-full px-4 py-1.5 text-xs text-slate-600 font-mono shadow-2xs">
+              Model engine: <strong className="text-slate-900 font-bold">QNN TFLite v2.4</strong>
             </div>
-            <div className="flex items-baseline justify-between">
-              <div className="text-2xl font-mono font-bold text-slate-900 dark:text-white">68%</div>
-              <div className="text-[10px] font-mono font-bold text-slate-500">→ Steady</div>
+            <div className="bg-slate-50 border border-slate-200/90 rounded-full px-4 py-1.5 text-xs text-slate-600 font-mono shadow-2xs">
+              Confidence: <strong className="text-emerald-600 font-bold">89.4% (R²)</strong>
             </div>
-            <div className="text-[10px] text-slate-400 font-mono">
-              Dew Point: 22.4°C | Sat: 88%
-            </div>
-            <MiniSparkline data={STREAM_SPARKLINES.humidity} color="#06b6d4" gradientId="sparkHumidity" />
-          </div>
-
-          {/* Card 3: AQI Index */}
-          <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-white/80 dark:border-slate-800 rounded-3xl p-4.5 space-y-2.5 shadow-[0_4px_20px_-2px_rgba(15,23,42,0.05),inset_0_1px_2px_rgba(255,255,255,0.8)] hover:shadow-lg hover:-translate-y-0.5 transition-all">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider flex items-center gap-1">
-                <span>🌫️</span> AQI INDEX
-              </span>
-              <span className="bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400 border border-rose-200/80 dark:border-rose-800/60 text-[9px] font-mono font-bold px-2 py-0.5 rounded-full">
-                WARNING
-              </span>
-            </div>
-            <div className="flex items-baseline justify-between">
-              <div className="text-2xl font-mono font-bold text-amber-600">142 <span className="text-xs text-slate-500 font-normal">AQI</span></div>
-              <div className="text-[10px] font-mono font-bold text-rose-500">Sensitive</div>
-            </div>
-            <div className="text-[10px] text-slate-400 font-mono">
-              PM2.5: 58 | PM10: 92 µg/m³
-            </div>
-            <MiniSparkline data={STREAM_SPARKLINES.aqi} color="#f59e0b" gradientId="sparkAqi" />
-          </div>
-
-          {/* Card 4: Fire Risk */}
-          <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-white/80 dark:border-slate-800 rounded-3xl p-4.5 space-y-2.5 shadow-[0_4px_20px_-2px_rgba(15,23,42,0.05),inset_0_1px_2px_rgba(255,255,255,0.8)] hover:shadow-lg hover:-translate-y-0.5 transition-all">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider flex items-center gap-1">
-                <span>🔥</span> FIRE / SMOKE
-              </span>
-              <span className="bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400 border border-emerald-200/80 dark:border-emerald-800/60 text-[9px] font-mono font-bold px-2 py-0.5 rounded-full">
-                SAFE
-              </span>
-            </div>
-            <div className="flex items-baseline justify-between">
-              <div className="text-2xl font-mono font-bold text-slate-900 dark:text-white">LOW <span className="text-xs text-slate-500 font-normal">Lvl 1</span></div>
-              <div className="text-[10px] font-mono font-bold text-emerald-600">FLIR Nom</div>
-            </div>
-            <div className="text-[10px] text-slate-400 font-mono">
-              CO: 0.07 ppm | VOC: &lt;0.01
-            </div>
-            <MiniSparkline data={STREAM_SPARKLINES.fire} color="#10b981" gradientId="sparkFire" />
-          </div>
-
-          {/* Card 5: Water Level */}
-          <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-white/80 dark:border-slate-800 rounded-3xl p-4.5 space-y-2.5 shadow-[0_4px_20px_-2px_rgba(15,23,42,0.05),inset_0_1px_2px_rgba(255,255,255,0.8)] hover:shadow-lg hover:-translate-y-0.5 transition-all">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider flex items-center gap-1">
-                <span>🌊</span> WATER LEVEL
-              </span>
-              <span className="bg-red-500 text-white text-[9px] font-mono font-bold px-2 py-0.5 rounded-full shadow-xs animate-pulse">
-                SURGE
-              </span>
-            </div>
-            <div className="flex items-baseline justify-between">
-              <div className="text-2xl font-mono font-bold text-red-600">1.28 m</div>
-              <div className="text-[10px] font-mono font-bold text-red-600">↑ +0.4m Sec 3</div>
-            </div>
-            <div className="text-[10px] text-slate-400 font-mono">
-              Catchment Capacity: 74%
-            </div>
-            <MiniSparkline data={STREAM_SPARKLINES.water} color="#ef4444" gradientId="sparkWater" />
-          </div>
-
-          {/* Card 6: Gas Pollutants */}
-          <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-white/80 dark:border-slate-800 rounded-3xl p-4.5 space-y-2.5 shadow-[0_4px_20px_-2px_rgba(15,23,42,0.05),inset_0_1px_2px_rgba(255,255,255,0.8)] hover:shadow-lg hover:-translate-y-0.5 transition-all">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider flex items-center gap-1">
-                <span>☣️</span> GAS / TOXIC
-              </span>
-              <span className="bg-blue-50 dark:bg-blue-950/50 text-blue-600 dark:text-blue-400 border border-blue-200/80 dark:border-blue-800/60 text-[9px] font-mono font-bold px-2 py-0.5 rounded-full">
-                NOMINAL
-              </span>
-            </div>
-            <div className="flex items-baseline justify-between">
-              <div className="text-2xl font-mono font-bold text-slate-900 dark:text-white">412 <span className="text-xs text-slate-500 font-normal">CO2</span></div>
-              <div className="text-[10px] font-mono font-bold text-slate-500">12 ppb NO2</div>
-            </div>
-            <div className="text-[10px] text-slate-400 font-mono">
-              Ozone: 31 ppb | SO2: 2.1
-            </div>
-            <MiniSparkline data={STREAM_SPARKLINES.gas} color="#8b5cf6" gradientId="sparkGas" />
-          </div>
-        </div>
-      </div>
-
-      {/* ─── 2. Interactive Predictive Trajectory Forecast (Hero Graph) ──── */}
-      <div className="bg-white/85 dark:bg-slate-900/85 backdrop-blur-xl border border-white/80 dark:border-slate-800 rounded-3xl p-6 shadow-[0_10px_30px_-5px_rgba(15,23,42,0.05),inset_0_1px_2px_rgba(255,255,255,0.8)] space-y-5">
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 border-b border-slate-100 dark:border-slate-800 pb-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-lg">📈</span>
-              <h2 className="font-extrabold text-base text-slate-900 dark:text-white tracking-tight font-mono uppercase">
-                2-Hour Ahead Neural Predictive Trajectory
-              </h2>
-            </div>
-            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-              Forward-looking crest projection modeled with Gaussian uncertainty envelope and spatial distance decay
-            </p>
-          </div>
-
-          {/* Hazard Selector Tabs */}
-          <div className="flex items-center bg-slate-100/80 dark:bg-slate-800/80 p-1 rounded-full border border-slate-200/80 dark:border-slate-700/80 overflow-x-auto scrollbar-none">
-            {Object.values(PREDICTIVE_TRAJECTORIES).map((h) => {
-              const isSelected = selectedHazard === h.id
-              return (
-                <button
-                  key={h.id}
-                  onClick={() => setSelectedHazard(h.id)}
-                  className={clsx(
-                    'px-3.5 py-1.5 rounded-full text-xs font-mono font-bold transition-all whitespace-nowrap flex items-center gap-1.5',
-                    isSelected
-                      ? 'bg-white dark:bg-slate-900 text-blue-600 dark:text-cyan-400 shadow-sm'
-                      : 'text-slate-600 dark:text-slate-400 hover:text-slate-900'
-                  )}
-                >
-                  <span>{h.id === 'flood' ? '🌊' : h.id === 'fire' ? '🔥' : h.id === 'air' ? '🌫️' : '☣️'}</span>
-                  <span>{h.name.split(' ')[0]}</span>
-                </button>
-              )
-            })}
           </div>
         </div>
 
-        {/* Real Dynamic Graph with Glowing Area & Neon Lines */}
-        <div className="h-72 w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={activeTraj.data} margin={{ top: 10, right: 20, left: -10, bottom: 0 }}>
-              <defs>
-                {/* Luminous Shaded Confidence Band Gradient */}
-                <linearGradient id={activeTraj.gradientId} x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={activeTraj.alertColor} stopOpacity={0.28} />
-                  <stop offset="50%" stopColor={activeTraj.color} stopOpacity={0.12} />
-                  <stop offset="100%" stopColor={activeTraj.color} stopOpacity={0.0} />
-                </linearGradient>
-                {/* Lower Baseline Fill */}
-                <linearGradient id="lowerFill" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor={activeTraj.color} stopOpacity={0.15} />
-                  <stop offset="100%" stopColor={activeTraj.color} stopOpacity={0.0} />
-                </linearGradient>
-              </defs>
-
-              <CartesianGrid strokeDasharray="4 4" stroke="#e2e8f0" opacity={0.6} />
-              <XAxis dataKey="time" stroke="#94a3b8" fontSize={11} fontStyle="italic" />
-              <YAxis stroke="#94a3b8" fontSize={11} domain={activeTraj.domain} />
-              <Tooltip content={<ForecastTooltip unit={activeTraj.unit} />} />
-
-              {/* Shaded Uncertainty Envelope Area */}
-              <Area
-                type="monotone"
-                dataKey="upper"
-                stroke="transparent"
-                fill={`url(#${activeTraj.gradientId})`}
-                isAnimationActive={true}
-              />
-
-              {/* Projected Upper Surge / Crest (Dashed Alert Line) */}
-              <Line
-                type="monotone"
-                dataKey="upper"
-                stroke={activeTraj.alertColor}
-                strokeWidth={2.5}
-                strokeDasharray="5 5"
-                dot={{ r: 4, fill: activeTraj.alertColor, strokeWidth: 2, stroke: '#ffffff' }}
-                activeDot={{ r: 6, fill: activeTraj.alertColor, stroke: '#ffffff', strokeWidth: 2 }}
-                name="Projected Upper Crest"
-              />
-
-              {/* Conservative Trajectory (Solid Luminous Curve) */}
-              <Line
-                type="monotone"
-                dataKey="lower"
-                stroke={activeTraj.color}
-                strokeWidth={3}
-                dot={{ r: 4, fill: activeTraj.color, strokeWidth: 2, stroke: '#ffffff' }}
-                activeDot={{ r: 6, fill: activeTraj.color, stroke: '#ffffff', strokeWidth: 2 }}
-                name="Conservative Baseline"
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-
-        {/* Live Forecast KPI Badges */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
-          <div className="bg-slate-50/90 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 p-3 rounded-2xl font-mono text-xs">
-            <div className="text-slate-400 text-[10px] uppercase">Projected Peak Crest</div>
-            <div className="text-base font-bold text-red-600 dark:text-red-400 mt-0.5">{activeTraj.peak}</div>
+        {/* ─── 2. TELEMETRY STREAMS BAR ──────────────────────────────────── */}
+        <div className="bg-white border border-slate-100 rounded-2xl p-5 shadow-xs space-y-4">
+          {/* Top Label & Zone Filter */}
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2.5">
+              <span className="font-extrabold text-sm text-slate-900 tracking-tight">
+                Telemetry Streams
+              </span>
+              <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full px-2.5 py-0.5 text-[11px] font-mono font-bold flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                <span>Realtime sync (15)</span>
+              </span>
+            </div>
+            <div className="font-mono text-xs text-slate-400 font-semibold cursor-pointer hover:text-slate-600">
+              Filter: All Zones
+            </div>
           </div>
-          <div className="bg-slate-50/90 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 p-3 rounded-2xl font-mono text-xs">
-            <div className="text-slate-400 text-[10px] uppercase">Lead Time to Crest</div>
-            <div className="text-base font-bold text-blue-600 dark:text-cyan-400 mt-0.5">{activeTraj.leadTime}</div>
-          </div>
-          <div className="bg-slate-50/90 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 p-3 rounded-2xl font-mono text-xs">
-            <div className="text-slate-400 text-[10px] uppercase">Statistical Margin</div>
-            <div className="text-base font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">{activeTraj.confidence}</div>
-          </div>
-          <div className="bg-slate-50/90 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 p-3 rounded-2xl font-mono text-xs">
-            <div className="text-slate-400 text-[10px] uppercase">Edge Neural Architecture</div>
-            <div className="text-[11px] font-bold text-slate-800 dark:text-slate-200 truncate mt-1">{activeTraj.model}</div>
-          </div>
-        </div>
-      </div>
 
-      {/* ─── 3. Feature Weight Deconstruction (Explainable AI) ─────────── */}
-      <div className="bg-white/85 dark:bg-slate-900/85 backdrop-blur-xl border border-white/80 dark:border-slate-800 rounded-3xl p-6 shadow-[0_10px_30px_-5px_rgba(15,23,42,0.05),inset_0_1px_2px_rgba(255,255,255,0.8)] space-y-4">
-        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
-          <div>
-            <h2 className="text-sm font-extrabold text-slate-900 dark:text-white uppercase font-mono tracking-wide">
-              Feature Weight Deconstruction (Why Did the Alert Fire?)
-            </h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Multi-channel on-device inference breakdown for Active Incident ALT-101
-            </p>
-          </div>
-          <span className="text-xs font-mono font-bold text-blue-700 dark:text-cyan-400 bg-blue-50 dark:bg-blue-900/40 border border-blue-200/80 dark:border-blue-700/60 px-3 py-1 rounded-full shadow-xs">
-            Fused Score: 0.89 Fused Risk
-          </span>
-        </div>
-
-        <div className="space-y-3 text-xs">
-          {[
-            { feature: 'Instantaneous Water Rate of Change (ΔW/dt)', weight: '+0.34', pct: 85, color: '#2563eb', desc: 'Rising +22 cm/min acceleration detected across 8-sample rolling FIFO window.' },
-            { feature: 'Upstream Sensor Correlation (NODE-01 to NODE-02)', weight: '+0.28', pct: 72, color: '#06b6d4', desc: 'Spatial distance decay confirmed neighbor surge 6.4 km upstream.' },
-            { feature: 'Rain Gauge Precipitation Ingress', weight: '+0.18', pct: 45, color: '#3b82f6', desc: 'Tipping bucket recorded continuous 38 mm/hr catchment rainfall.' },
-            { feature: 'Optical Smoke / Flare Inversion', weight: '+0.09', pct: 25, color: '#f97316', desc: 'Background baseline normal; negligible contribution.' },
-          ].map((item, idx) => (
-            <div key={idx} className="bg-slate-50/90 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 p-4 rounded-2xl space-y-2 hover:bg-white dark:hover:bg-slate-800 hover:border-blue-300 hover:shadow-sm transition-all">
+          {/* 6 Metric Cards Row */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3.5">
+            {/* 1. TEMPERATURE */}
+            <div className="bg-white border border-slate-100 rounded-2xl p-3.5 shadow-2xs space-y-2">
               <div className="flex items-center justify-between">
-                <span className="font-semibold text-slate-900 dark:text-slate-100">{item.feature}</span>
-                <span className="font-mono font-bold text-slate-900 dark:text-slate-200">{item.weight} Contribution</span>
+                <span className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider">
+                  TEMPERATURE
+                </span>
+                <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                  Normal
+                </span>
               </div>
-              <div className="w-full bg-slate-200/80 dark:bg-slate-700/80 h-2.5 rounded-full overflow-hidden">
-                <div className="h-full rounded-full transition-all duration-500" style={{ width: `${item.pct}%`, backgroundColor: item.color }} />
+              <div className="text-xl font-black text-slate-900 tracking-tight">
+                32.4<span className="text-xs font-semibold text-slate-500 ml-0.5">°C</span>
               </div>
-              <div className="text-[11px] text-slate-500 dark:text-slate-400">{item.desc}</div>
+              <div className="text-[10px] text-slate-400 font-mono truncate">
+                Peak: 35.1°C | Low: 21.0°C
+              </div>
             </div>
-          ))}
-        </div>
-      </div>
 
-      {/* ─── 4. Cross-Node Spatial Reinforcement Visual ───────────────── */}
-      <div className="bg-white/85 dark:bg-slate-900/85 backdrop-blur-xl border border-white/80 dark:border-slate-800 rounded-3xl p-6 shadow-[0_10px_30px_-5px_rgba(15,23,42,0.05),inset_0_1px_2px_rgba(255,255,255,0.8)] space-y-4">
-        <div className="border-b border-slate-100 dark:border-slate-800 pb-3">
-          <h3 className="font-extrabold text-sm text-slate-900 dark:text-white font-mono uppercase">
-            Cross-Node Spatial Reinforcement Visual Pipeline
-          </h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            How upstream telemetry reinforces downstream alerts before local crest reaches flood stage
-          </p>
+            {/* 2. HUMIDITY */}
+            <div className="bg-white border border-slate-100 rounded-2xl p-3.5 shadow-2xs space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider">
+                  HUMIDITY
+                </span>
+                <span className="bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                  Elevated
+                </span>
+              </div>
+              <div className="text-xl font-black text-slate-900 tracking-tight">
+                68<span className="text-xs font-semibold text-slate-500 ml-0.5">%</span>
+              </div>
+              <div className="text-[10px] text-slate-400 font-mono truncate">
+                Dew point: 22.4°C | Sat: 88%
+              </div>
+            </div>
+
+            {/* 3. AQI INDEX */}
+            <div className="bg-white border border-slate-100 rounded-2xl p-3.5 shadow-2xs space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider">
+                  AQI INDEX
+                </span>
+                <span className="bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                  Warning
+                </span>
+              </div>
+              <div className="text-xl font-black text-amber-500 tracking-tight">
+                142 <span className="text-xs font-bold text-amber-600">AQI</span>
+              </div>
+              <div className="text-[10px] text-slate-400 font-mono truncate">
+                PM2.5: 58 | PM10: 92 µg/m³
+              </div>
+            </div>
+
+            {/* 4. FIRE / SMOKE */}
+            <div className="bg-white border border-slate-100 rounded-2xl p-3.5 shadow-2xs space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider">
+                  FIRE / SMOKE
+                </span>
+                <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                  Safe
+                </span>
+              </div>
+              <div className="text-xl font-black text-slate-900 tracking-tight">
+                Low <span className="text-xs font-semibold text-slate-500 font-normal">Lvl 1</span>
+              </div>
+              <div className="text-[10px] text-slate-400 font-mono truncate">
+                CO: 0.07 ppm | VOC: &lt;0.01
+              </div>
+            </div>
+
+            {/* 5. WATER LEVEL */}
+            <div className="bg-white border border-slate-100 rounded-2xl p-3.5 shadow-2xs space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider">
+                  WATER LEVEL
+                </span>
+                <span className="bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                  Surge
+                </span>
+              </div>
+              <div className="text-xl font-black text-rose-600 tracking-tight">
+                1.28 <span className="text-xs font-bold text-slate-500 font-normal">m</span>
+              </div>
+              <div className="text-[10px] text-slate-400 font-mono truncate">
+                ↑ +0.4m in last 3 min
+              </div>
+            </div>
+
+            {/* 6. GAS / TOXIC */}
+            <div className="bg-white border border-slate-100 rounded-2xl p-3.5 shadow-2xs space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider">
+                  GAS / TOXIC
+                </span>
+                <span className="bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                  Nominal
+                </span>
+              </div>
+              <div className="text-xl font-black text-slate-900 tracking-tight">
+                412 <span className="text-xs font-semibold text-slate-500 font-normal">CO2</span>
+              </div>
+              <div className="text-[10px] text-slate-400 font-mono truncate">
+                Ozone: 31 ppb | SO2: 2.1
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div className="bg-slate-50/90 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 rounded-2xl p-4.5 text-xs font-mono space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="font-bold text-blue-600 dark:text-cyan-400">NODE-01 (Upstream Dam)</span>
-            <span className="text-emerald-600 dark:text-emerald-400 font-bold">Surge Detected (T = 0)</span>
+        {/* ─── 3. 2-HOUR AHEAD NEURAL PREDICTIVE TRAJECTORY ───────────────── */}
+        <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-xs space-y-5">
+          {/* Header Row & Hazard Buttons */}
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div className="flex items-start gap-2.5">
+              <span className="text-lg">📈</span>
+              <div>
+                <h3 className="text-sm sm:text-base font-black text-slate-900 tracking-tight uppercase">
+                  2-HOUR AHEAD NEURAL PREDICTIVE TRAJECTORY
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Forward-looking crest projection modeled with Gaussian uncertainty envelope and spatial distance decay
+                </p>
+              </div>
+            </div>
+
+            {/* 4 Hazard Selector Pills */}
+            <div className="flex items-center gap-2 flex-wrap">
+              {[
+                { id: 'flood', label: 'Flood', icon: '💧' },
+                { id: 'thermal', label: 'Thermal', icon: '🔥' },
+                { id: 'particulate', label: 'Particulate', icon: '📊' },
+                { id: 'chemical', label: 'Chemical', icon: '☢️' },
+              ].map((m) => {
+                const isSel = selectedTrajectory === m.id
+                return (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => setSelectedTrajectory(m.id)}
+                    className={clsx(
+                      'px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer shadow-2xs',
+                      isSel
+                        ? 'bg-blue-50 text-blue-600 border border-blue-200'
+                        : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200 hover:bg-slate-50'
+                    )}
+                  >
+                    <span>{m.icon}</span>
+                    <span>{m.label}</span>
+                  </button>
+                )
+              })}
+            </div>
           </div>
-          <div className="text-center text-slate-400 font-bold text-[11px]">
-            ↓ Spatial Propagation: 4.8 km distance decay (22 min fluid transit lag) ↓
+
+          {/* Chart Canvas */}
+          <div className="h-64 sm:h-72 w-full pt-2">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={traj.data} margin={{ top: 15, right: 20, left: -20, bottom: 0 }}>
+                <defs>
+                  {/* Gaussian uncertainty envelope gradient */}
+                  <linearGradient id="envelopeGrad" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#dbeafe" stopOpacity={0.6} />
+                    <stop offset="95%" stopColor="#fee2e2" stopOpacity={0.4} />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                <XAxis
+                  dataKey="time"
+                  tick={{ fontSize: 11, fill: '#94a3b8', fontFamily: 'monospace' }}
+                  axisLine={{ stroke: '#e2e8f0' }}
+                  tickLine={false}
+                />
+                <YAxis
+                  domain={traj.domain}
+                  tick={{ fontSize: 10, fill: '#94a3b8', fontFamily: 'monospace' }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <Tooltip
+                  content={({ active, payload }) => {
+                    if (active && payload && payload.length) {
+                      const d = payload[0].payload
+                      return (
+                        <div className="bg-slate-900 text-white p-2.5 rounded-xl text-xs font-mono shadow-xl space-y-1">
+                          <div className="text-cyan-400 font-bold">{d.time} Projection</div>
+                          <div>Trajectory: <b>{d.actual}</b></div>
+                          <div className="text-slate-400 text-[10px]">
+                            Range: {d.envelopeLower} – {d.envelopeUpper}
+                          </div>
+                        </div>
+                      )
+                    }
+                    return null
+                  }}
+                />
+                {/* Vertical crossing dashed line at +1h */}
+                <ReferenceLine x="+1h" stroke="#93c5fd" strokeDasharray="4 4" strokeWidth={1.5} />
+
+                {/* Shaded Gaussian Uncertainty Envelope */}
+                <Area
+                  type="monotone"
+                  dataKey="envelopeUpper"
+                  stroke="none"
+                  fill="url(#envelopeGrad)"
+                  fillOpacity={0.6}
+                />
+                <Area
+                  type="monotone"
+                  dataKey="envelopeLower"
+                  stroke="none"
+                  fill="#ffffff"
+                  fillOpacity={1}
+                />
+
+                {/* Bold Red Trajectory Line */}
+                <Line
+                  type="monotone"
+                  dataKey="actual"
+                  stroke="#ef4444"
+                  strokeWidth={2.8}
+                  dot={<CustomDot />}
+                  isAnimationActive={false}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
           </div>
-          <div className="flex items-center justify-between">
-            <span className="font-bold text-cyan-600 dark:text-cyan-300">NODE-02 (Canal Siphon)</span>
-            <span className="text-amber-600 dark:text-amber-400 font-bold">Reinforced Early Warning (+42 min lead)</span>
-          </div>
-          <div className="text-center text-slate-400 font-bold text-[11px]">
-            ↓ Multi-Hop LoRa Mesh Relay (Zero Cloud WAN Dependency) ↓
-          </div>
-          <div className="flex items-center justify-between">
-            <span className="font-bold text-red-600 dark:text-red-400">NODE-06 (Vasna Barrage Downstream)</span>
-            <span className="text-red-600 dark:text-red-400 font-bold">Gates Prepared Before Surge Arrival</span>
+
+          {/* 4 Stat Boxes Below Chart */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-1">
+            <div className="bg-[#f8fafc] border border-slate-100 rounded-2xl p-4">
+              <div className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider">
+                PROJECTED PEAK CREST
+              </div>
+              <div className="text-lg font-black text-rose-500 tracking-tight mt-1">
+                {traj.peak}
+              </div>
+            </div>
+
+            <div className="bg-[#f8fafc] border border-slate-100 rounded-2xl p-4">
+              <div className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider">
+                LEAD TIME TO CREST
+              </div>
+              <div className="text-lg font-black text-emerald-600 tracking-tight mt-1">
+                {traj.leadTime}
+              </div>
+            </div>
+
+            <div className="bg-[#f8fafc] border border-slate-100 rounded-2xl p-4">
+              <div className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider">
+                STATISTICAL MARGIN
+              </div>
+              <div className="text-lg font-black text-slate-900 tracking-tight mt-1 font-mono">
+                {traj.statisticalMargin}
+              </div>
+            </div>
+
+            <div className="bg-[#f8fafc] border border-slate-100 rounded-2xl p-4">
+              <div className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider">
+                EDGE NEURAL ARCHITECTURE
+              </div>
+              <div className="text-xs sm:text-[13px] font-black text-slate-900 tracking-tight mt-1">
+                {traj.architecture}
+              </div>
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* ─── 5. False-Positive Edge Model Suppression Log ───────────────── */}
-      <div className="bg-white/85 dark:bg-slate-900/85 backdrop-blur-xl border border-white/80 dark:border-slate-800 rounded-3xl p-6 shadow-[0_10px_30px_-5px_rgba(15,23,42,0.05),inset_0_1px_2px_rgba(255,255,255,0.8)] space-y-4">
-        <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-4">
-          <div>
-            <h3 className="font-extrabold text-sm text-slate-900 dark:text-white uppercase font-mono flex items-center gap-2">
-              <span>🛡️</span> False-Positive Suppression Log (Proves AI Over Fixed Thresholds)
-            </h3>
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              Transient sensor anomalies classified as non-emergencies by the on-device model, preventing alert fatigue
-            </p>
+        {/* ─── 4. AI PREDICTED DANGER ZONES — NEXT 2–3 HOURS ─────────────── */}
+        <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-xs space-y-5">
+          {/* Header */}
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2.5">
+              <span className="text-blue-500 text-lg">🛡️</span>
+              <div>
+                <h3 className="text-sm sm:text-base font-black text-slate-900 tracking-tight uppercase">
+                  AI PREDICTED DANGER ZONES — NEXT 2–3 HOURS
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Spatial risk ranking across all monitored zones, generated from the same trajectory models above
+                </p>
+              </div>
+            </div>
+            <div className="bg-blue-50 text-blue-700 border border-blue-200 rounded-full px-3 py-1 text-xs font-mono font-bold">
+              3 zones flagged
+            </div>
           </div>
-          <span className="text-xs font-mono font-bold text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800/60 px-3 py-1 rounded-full shadow-xs">
-            Zero False Dispatches
-          </span>
+
+          {/* 2-Column Grid: Left Radar Constellation + Right Ranked Danger Zones List */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-stretch">
+            {/* Left Column: Midnight Grid Radar Constellation */}
+            <div className="lg:col-span-5 bg-[#091528] rounded-2xl p-5 text-white shadow-xl relative min-h-[360px] flex flex-col justify-between overflow-hidden">
+              <div className="text-[10px] font-mono font-bold tracking-widest text-cyan-400 uppercase">
+                GUJARAT GRID · RISK PROJECTION
+              </div>
+
+              {/* Spatial Graph SVG Constellation */}
+              <div className="relative w-full h-56 flex items-center justify-center my-2">
+                <svg className="absolute inset-0 w-full h-full" viewBox="0 0 320 220">
+                  {/* Subtle Grid lines */}
+                  <line x1="0" y1="55" x2="320" y2="55" stroke="#1e293b" strokeWidth="0.8" strokeDasharray="3 3" />
+                  <line x1="0" y1="110" x2="320" y2="110" stroke="#1e293b" strokeWidth="0.8" strokeDasharray="3 3" />
+                  <line x1="0" y1="165" x2="320" y2="165" stroke="#1e293b" strokeWidth="0.8" strokeDasharray="3 3" />
+                  <line x1="80" y1="0" x2="80" y2="220" stroke="#1e293b" strokeWidth="0.8" strokeDasharray="3 3" />
+                  <line x1="160" y1="0" x2="160" y2="220" stroke="#1e293b" strokeWidth="0.8" strokeDasharray="3 3" />
+                  <line x1="240" y1="0" x2="240" y2="220" stroke="#1e293b" strokeWidth="0.8" strokeDasharray="3 3" />
+
+                  {/* Connectors from center (160, 110) to outer nodes */}
+                  <line x1="160" y1="110" x2="85" y2="60" stroke="#475569" strokeWidth="1.2" strokeDasharray="4 4" />
+                  <line x1="160" y1="110" x2="250" y2="70" stroke="#475569" strokeWidth="1.2" strokeDasharray="4 4" />
+                  <line x1="160" y1="110" x2="85" y2="165" stroke="#475569" strokeWidth="1.2" strokeDasharray="4 4" />
+                  <line x1="160" y1="110" x2="240" y2="155" stroke="#475569" strokeWidth="1.2" strokeDasharray="4 4" />
+
+                  {/* Node 1 (Center): Vasna Barrage (High Risk - Red Pulse) */}
+                  <circle cx="160" cy="110" r="16" fill="rgba(244, 63, 94, 0.2)" className="animate-ping" />
+                  <circle cx="160" cy="110" r="13" fill="#be123c" stroke="#f43f5e" strokeWidth="2.5" />
+                  <text x="160" y="113" textAnchor="middle" fontSize="10" fill="#ffffff">💧</text>
+                  <text x="160" y="132" textAnchor="middle" fontSize="9" fontWeight="bold" fill="#ffffff">Vasna Barrage</text>
+
+                  {/* Node 2 (Top Left): Vatva GIDC (Medium - Amber) */}
+                  <circle cx="85" cy="60" r="11" fill="#78350f" stroke="#f59e0b" strokeWidth="2" />
+                  <text x="85" y="63" textAnchor="middle" fontSize="9" fill="#ffffff">☢️</text>
+                  <text x="85" y="80" textAnchor="middle" fontSize="9" fontWeight="bold" fill="#ffffff">Vatva GIDC</text>
+
+                  {/* Node 3 (Top Right): Chandola Lake (Low - Cyan) */}
+                  <circle cx="250" cy="70" r="11" fill="#083344" stroke="#06b6d4" strokeWidth="2" />
+                  <text x="250" y="73" textAnchor="middle" fontSize="9" fill="#ffffff">💧</text>
+                  <text x="250" y="90" textAnchor="middle" fontSize="9" fontWeight="bold" fill="#ffffff">Chandola Lake</text>
+
+                  {/* Node 4 (Bottom Left): Naroda Rd. (Low - Cyan) */}
+                  <circle cx="85" cy="165" r="11" fill="#083344" stroke="#06b6d4" strokeWidth="2" />
+                  <text x="85" y="168" textAnchor="middle" fontSize="9" fill="#ffffff">🔥</text>
+                  <text x="85" y="186" textAnchor="middle" fontSize="9" fontWeight="bold" fill="#ffffff">Naroda Rd.</text>
+
+                  {/* Node 5 (Bottom Right): Isanpur (Medium - Amber) */}
+                  <circle cx="240" cy="155" r="11" fill="#78350f" stroke="#f59e0b" strokeWidth="2" />
+                  <text x="240" y="158" textAnchor="middle" fontSize="9" fill="#ffffff">🏭</text>
+                  <text x="240" y="176" textAnchor="middle" fontSize="9" fontWeight="bold" fill="#ffffff">Isanpur</text>
+                </svg>
+              </div>
+
+              {/* Bottom Legend */}
+              <div className="flex items-center justify-between text-[11px] font-mono text-slate-300 pt-2 border-t border-slate-800">
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
+                  <span>High (&lt;1h)</span>
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-amber-400" />
+                  <span>Medium (1–2h)</span>
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-cyan-400" />
+                  <span>Low (2–3h)</span>
+                </span>
+              </div>
+            </div>
+
+            {/* Right Column: Ranked Danger Zones List */}
+            <div className="lg:col-span-7 space-y-3 flex flex-col justify-between">
+              {/* Zone 1: Vasna Barrage & Riverfront */}
+              <div className="bg-white border-t border-r border-b border-slate-100 border-l-4 border-rose-500 rounded-2xl p-3.5 sm:p-4 shadow-xs flex items-center justify-between gap-3">
+                <div className="flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center text-sm shadow-2xs flex-shrink-0 mt-0.5">
+                    💧
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-slate-900 text-xs sm:text-sm">
+                      Vasna Barrage & Riverfront
+                    </h4>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Flood crest projected to exceed danger mark
+                    </p>
+                    <div className="flex items-center gap-2 mt-1.5 font-mono text-[10px]">
+                      <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md">
+                        rate-of-change ↑
+                      </span>
+                      <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md">
+                        upstream correlated
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="text-right flex-shrink-0">
+                  <div className="font-mono font-bold text-rose-600 text-xs sm:text-sm">
+                    ETA 42 min
+                  </div>
+                  <div className="text-[11px] text-slate-400 mt-0.5">
+                    91% probability
+                  </div>
+                </div>
+              </div>
+
+              {/* Zone 2: Vatva GIDC Industrial Corridor */}
+              <div className="bg-white border-t border-r border-b border-slate-100 border-l-4 border-amber-400 rounded-2xl p-3.5 sm:p-4 shadow-xs flex items-center justify-between gap-3">
+                <div className="flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center text-sm shadow-2xs flex-shrink-0 mt-0.5">
+                    ☢️
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-slate-900 text-xs sm:text-sm">
+                      Vatva GIDC Industrial Corridor
+                    </h4>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      VOC concentration trending toward emergency band
+                    </p>
+                    <div className="flex items-center gap-2 mt-1.5 font-mono text-[10px]">
+                      <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md">
+                        2 nodes correlated
+                      </span>
+                      <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md">
+                        wind-assisted
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="text-right flex-shrink-0">
+                  <div className="font-mono font-bold text-amber-600 text-xs sm:text-sm">
+                    ETA 1h 20m
+                  </div>
+                  <div className="text-[11px] text-slate-400 mt-0.5">
+                    74% probability
+                  </div>
+                </div>
+              </div>
+
+              {/* Zone 3: Isanpur Residential Zone */}
+              <div className="bg-white border-t border-r border-b border-slate-100 border-l-4 border-amber-400 rounded-2xl p-3.5 sm:p-4 shadow-xs flex items-center justify-between gap-3">
+                <div className="flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-sky-50 text-sky-600 flex items-center justify-center text-sm shadow-2xs flex-shrink-0 mt-0.5">
+                    🏭
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-slate-900 text-xs sm:text-sm">
+                      Isanpur Residential Zone
+                    </h4>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      AQI forecast to cross 160 as plume disperses downwind
+                    </p>
+                    <div className="flex items-center gap-2 mt-1.5 font-mono text-[10px]">
+                      <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md">
+                        plume model
+                      </span>
+                      <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md">
+                        high density area
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="text-right flex-shrink-0">
+                  <div className="font-mono font-bold text-amber-600 text-xs sm:text-sm">
+                    ETA 1h 45m
+                  </div>
+                  <div className="text-[11px] text-slate-400 mt-0.5">
+                    68% probability
+                  </div>
+                </div>
+              </div>
+
+              {/* Zone 4: Naroda Road Corridor */}
+              <div className="bg-white border-t border-r border-b border-slate-100 border-l-4 border-cyan-400 rounded-2xl p-3.5 sm:p-4 shadow-xs flex items-center justify-between gap-3">
+                <div className="flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-cyan-50 text-cyan-600 flex items-center justify-center text-sm shadow-2xs flex-shrink-0 mt-0.5">
+                    🔥
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-slate-900 text-xs sm:text-sm">
+                      Naroda Road Corridor
+                    </h4>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Thermal signature rising slowly, well within margin
+                    </p>
+                    <div className="flex items-center gap-2 mt-1.5 font-mono text-[10px]">
+                      <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md">
+                        low confidence
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="text-right flex-shrink-0">
+                  <div className="font-mono font-bold text-cyan-600 text-xs sm:text-sm">
+                    ETA 2h 40m
+                  </div>
+                  <div className="text-[11px] text-slate-400 mt-0.5">
+                    31% probability
+                  </div>
+                </div>
+              </div>
+
+              {/* Zone 5: Chandola Lake Basin */}
+              <div className="bg-white border-t border-r border-b border-slate-100 border-l-4 border-cyan-400 rounded-2xl p-3.5 sm:p-4 shadow-xs flex items-center justify-between gap-3">
+                <div className="flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-cyan-50 text-cyan-600 flex items-center justify-center text-sm shadow-2xs flex-shrink-0 mt-0.5">
+                    💧
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-slate-900 text-xs sm:text-sm">
+                      Chandola Lake Basin
+                    </h4>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Inflow steady; no crest expected within window
+                    </p>
+                    <div className="flex items-center gap-2 mt-1.5 font-mono text-[10px]">
+                      <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-md">
+                        stable trend
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <div className="text-right flex-shrink-0">
+                  <div className="font-mono font-bold text-cyan-600 text-xs sm:text-sm">
+                    ETA 2h 55m
+                  </div>
+                  <div className="text-[11px] text-slate-400 mt-0.5">
+                    22% probability
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Blue Callout Banner Below */}
+          <div className="bg-blue-600 rounded-2xl p-4 sm:p-5 text-white flex items-center gap-3.5 shadow-md shadow-blue-500/20">
+            <span className="text-xl flex-shrink-0">🔔</span>
+            <div className="text-xs sm:text-sm leading-relaxed">
+              <strong>Why this matters:</strong> by forecasting 2–3 hours ahead instead of alerting only after a threshold is crossed, GSDMA field teams gain enough lead time to pre-position pumps, close gates, or issue evacuation notices before the hazard physically arrives — not after.
+            </div>
+          </div>
         </div>
 
-        <div className="space-y-3">
-          {suppressionLog.map((sup) => (
-            <div
-              key={sup.id}
-              className="bg-slate-50/90 dark:bg-slate-800/60 border border-slate-200/80 dark:border-slate-700/60 rounded-2xl p-4 text-xs space-y-1.5 transition-all hover:bg-white dark:hover:bg-slate-800 hover:border-blue-300 hover:shadow-xs"
-            >
-              <div className="flex items-center justify-between font-mono">
+        {/* ─── 5. FEATURE WEIGHT DECONSTRUCTION (WHY DID THE ALERT FIRE?) ── */}
+        <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-xs space-y-5">
+          {/* Header */}
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2.5">
+              <span className="text-lg">🧠</span>
+              <div>
+                <h3 className="text-sm sm:text-base font-black text-slate-900 tracking-tight uppercase">
+                  FEATURE WEIGHT DECONSTRUCTION (WHY DID THE ALERT FIRE?)
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Multi-channel on-device inference breakdown for Active Incident ALT-101
+                </p>
+              </div>
+            </div>
+            <div className="bg-cyan-50 text-cyan-700 border border-cyan-200 rounded-full px-3 py-1 text-xs font-mono font-bold">
+              Fused score: 0.89
+            </div>
+          </div>
+
+          {/* 4 Feature Weights Bars */}
+          <div className="space-y-4 pt-1">
+            {/* 1. Instantaneous Water Rate of Change */}
+            <div className="space-y-1.5">
+              <div className="flex justify-between items-center text-xs">
+                <span className="font-bold text-slate-900">
+                  Instantaneous Water Rate of Change (ΔW/dt)
+                </span>
+                <span className="font-mono font-bold text-blue-600">
+                  +0.34 contribution
+                </span>
+              </div>
+              <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                <div className="h-full bg-blue-600 rounded-full w-[76%]" />
+              </div>
+              <div className="text-[11px] text-slate-400">
+                Rising +22 cm/min acceleration detected across 8-sample rolling FIFO window.
+              </div>
+            </div>
+
+            {/* 2. Upstream Sensor Correlation */}
+            <div className="space-y-1.5">
+              <div className="flex justify-between items-center text-xs">
+                <span className="font-bold text-slate-900">
+                  Upstream Sensor Correlation (NODE-01 to NODE-02)
+                </span>
+                <span className="font-mono font-bold text-blue-600">
+                  +0.28 contribution
+                </span>
+              </div>
+              <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                <div className="h-full bg-cyan-600 rounded-full w-[62%]" />
+              </div>
+              <div className="text-[11px] text-slate-400">
+                Spatial distance decay confirmed neighbor surge 6.4 km upstream.
+              </div>
+            </div>
+
+            {/* 3. Rain Gauge Precipitation Ingress */}
+            <div className="space-y-1.5">
+              <div className="flex justify-between items-center text-xs">
+                <span className="font-bold text-slate-900">
+                  Rain Gauge Precipitation Ingress
+                </span>
+                <span className="font-mono font-bold text-blue-600">
+                  +0.18 contribution
+                </span>
+              </div>
+              <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                <div className="h-full bg-blue-600 rounded-full w-[42%]" />
+              </div>
+              <div className="text-[11px] text-slate-400">
+                Tipping bucket recorded continuous 38 mm/hr catchment rainfall.
+              </div>
+            </div>
+
+            {/* 4. Optical Smoke / Flare Inversion */}
+            <div className="space-y-1.5">
+              <div className="flex justify-between items-center text-xs">
+                <span className="font-bold text-slate-900">
+                  Optical Smoke / Flare Inversion
+                </span>
+                <span className="font-mono font-bold text-blue-600">
+                  +0.09 contribution
+                </span>
+              </div>
+              <div className="h-2 w-full bg-slate-100 rounded-full overflow-hidden">
+                <div className="h-full bg-amber-500 rounded-full w-[20%]" />
+              </div>
+              <div className="text-[11px] text-slate-400">
+                Background baseline normal; negligible contribution.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ─── 6. CROSS-NODE SPATIAL REINFORCEMENT VISUAL PIPELINE ─────────── */}
+        <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-xs space-y-4">
+          <div className="flex items-center gap-2.5">
+            <span className="text-lg">📝</span>
+            <div>
+              <h3 className="text-sm sm:text-base font-black text-slate-900 tracking-tight uppercase">
+                CROSS-NODE SPATIAL REINFORCEMENT VISUAL PIPELINE
+              </h3>
+              <p className="text-xs text-slate-400 mt-0.5">
+                How upstream telemetry reinforces downstream alerts before local crest reaches flood stage
+              </p>
+            </div>
+          </div>
+
+          <div className="bg-[#f8fafc] border border-slate-100 rounded-2xl p-5 space-y-3 font-mono text-xs">
+            {/* Step 1 */}
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <span className="font-bold text-blue-600">
+                NODE-01 (Upstream Dam)
+              </span>
+              <span className="font-bold text-rose-500">
+                Surge Detected (T = 0)
+              </span>
+            </div>
+
+            {/* Propagation Step 1 */}
+            <div className="text-center text-[11px] text-slate-400 py-1">
+              ↓ Spatial propagation: 4.8 km distance decay (22 min fluid transit lag) ↓
+            </div>
+
+            {/* Step 2 */}
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <span className="font-bold text-blue-600">
+                NODE-02 (Canal Siphon)
+              </span>
+              <span className="font-bold text-amber-600">
+                Reinforced Early Warning (+42 min lead)
+              </span>
+            </div>
+
+            {/* Propagation Step 2 */}
+            <div className="text-center text-[11px] text-slate-400 py-1">
+              ↓ Multi-hop LoRa mesh relay (zero cloud WAN dependency) ↓
+            </div>
+
+            {/* Step 3 */}
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <span className="font-bold text-rose-500">
+                NODE-06 (Vasna Barrage Downstream)
+              </span>
+              <span className="font-bold text-emerald-600">
+                Gates Prepared Before Surge Arrival
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* ─── 7. FALSE-POSITIVE SUPPRESSION LOG ─────────────────────────── */}
+        <div className="bg-white border border-slate-100 rounded-2xl p-6 shadow-xs space-y-4">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <div className="flex items-center gap-2.5">
+              <span className="text-blue-500 text-lg">🛡️</span>
+              <div>
+                <h3 className="text-sm sm:text-base font-black text-slate-900 tracking-tight uppercase">
+                  FALSE-POSITIVE SUPPRESSION LOG (PROVES AI OVER FIXED THRESHOLDS)
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">
+                  Transient sensor anomalies classified as non-emergencies by the on-device model, preventing alert fatigue
+                </p>
+              </div>
+            </div>
+            <div className="bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-full px-3 py-1 text-xs font-mono font-bold">
+              Zero false dispatches
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            {/* Suppressed 1: NODE-04 */}
+            <div className="bg-white border border-slate-100 rounded-2xl p-4 shadow-2xs space-y-2">
+              <div className="flex items-center justify-between flex-wrap gap-2">
                 <div className="flex items-center gap-2">
-                  <span className="font-bold text-slate-900 dark:text-white">{sup.node_id}</span>
-                  <span className="text-slate-500 dark:text-slate-400">({sup.sensor})</span>
-                  <span className="bg-amber-100/90 dark:bg-amber-900/40 border border-amber-200/80 dark:border-amber-700/60 text-amber-800 dark:text-amber-300 px-2 py-0.5 rounded-full text-[10px] font-bold">
-                    Spike: {sup.spike_val}
+                  <span className="font-black text-slate-900 text-xs sm:text-sm font-mono">
+                    NODE-04
+                  </span>
+                  <span className="text-xs text-slate-400 font-normal">
+                    (MQ-135 Gas Cell)
+                  </span>
+                  <span className="bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-mono font-bold px-2 py-0.5 rounded-md">
+                    Spike: 78 ppm VOC
                   </span>
                 </div>
-                <span className="text-[11px] text-slate-400">{sup.time}</span>
+                <span className="text-xs font-mono text-slate-400">
+                  24 min ago
+                </span>
               </div>
-
-              <p className="text-slate-700 dark:text-slate-300 leading-relaxed">{sup.reason}</p>
-
-              <div className="text-[11px] text-emerald-700 dark:text-emerald-400 font-mono font-semibold flex items-center gap-1.5">
-                <span>✓ Decision:</span>
-                <span>{sup.action}</span>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Vehicle exhaust transient from a passing diesel truck — rate-of-change decayed within 35s. Classified as non-hazard by the Qualcomm edge model.
+              </p>
+              <div className="text-xs font-bold text-emerald-600 flex items-center gap-1.5 pt-0.5">
+                <span>✓</span>
+                <span>Decision: Suppressed on-device (zero false alarm dispatch)</span>
               </div>
             </div>
-          ))}
+
+            {/* Suppressed 2: NODE-07 */}
+            <div className="bg-white border border-slate-100 rounded-2xl p-4 shadow-2xs space-y-2">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="font-black text-slate-900 text-xs sm:text-sm font-mono">
+                    NODE-07
+                  </span>
+                  <span className="text-xs text-slate-400 font-normal">
+                    (Ultrasonic Depth)
+                  </span>
+                  <span className="bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-mono font-bold px-2 py-0.5 rounded-md">
+                    Spike: water surge +24 cm
+                  </span>
+                </div>
+                <span className="text-xs font-mono text-slate-400">
+                  1h 14m ago
+                </span>
+              </div>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Transient speed-boat wake at Kankaria lake. Multi-sensor fusion with adjacent flood nodes confirmed no regional reservoir rise.
+              </p>
+              <div className="text-xs font-bold text-emerald-600 flex items-center gap-1.5 pt-0.5">
+                <span>✓</span>
+                <span>Decision: Suppressed on-device</span>
+              </div>
+            </div>
+
+            {/* Suppressed 3: NODE-03 */}
+            <div className="bg-white border border-slate-100 rounded-2xl p-4 shadow-2xs space-y-2">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="font-black text-slate-900 text-xs sm:text-sm font-mono">
+                    NODE-03
+                  </span>
+                  <span className="text-xs text-slate-400 font-normal">
+                    (Thermal IR)
+                  </span>
+                  <span className="bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-mono font-bold px-2 py-0.5 rounded-md">
+                    Spike: 46.2°C IR spike
+                  </span>
+                </div>
+                <span className="text-xs font-mono text-slate-400">
+                  3h 05m ago
+                </span>
+              </div>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Solar glare reflection off a park maintenance vehicle roof. Optical flame channel was negative.
+              </p>
+              <div className="text-xs font-bold text-emerald-600 flex items-center gap-1.5 pt-0.5">
+                <span>✓</span>
+                <span>Decision: Suppressed on-device</span>
+              </div>
+            </div>
+          </div>
         </div>
+
       </div>
     </div>
   )
 }
-
