@@ -15,13 +15,12 @@ export default function Footer() {
             
             {/* Left: Code Vortex Brand */}
             <div className="flex items-center gap-3.5 flex-shrink-0">
-              <div className="w-12 h-12 rounded-2xl bg-blue-600 flex items-center justify-center text-white shadow-md shadow-blue-500/25">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6">
-                  <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2z" opacity="0.3" />
-                  <path d="M12 6a6 6 0 1 0 6 6 6 6 0 0 0-6-6z" opacity="0.65" />
-                  <path d="M12 9a3 3 0 1 0 3 3 3 3 0 0 0-3-3z" />
-                  <circle cx="12" cy="12" r="1.5" fill="currentColor" />
-                </svg>
+              <div className="w-12 h-12 rounded-2xl bg-black overflow-hidden flex items-center justify-center shadow-md shadow-slate-900/30 border border-slate-800">
+                <img
+                  src="/code-vortex-logo.png"
+                  alt="Code Vortex"
+                  className="w-full h-full object-cover"
+                />
               </div>
 
               <div>

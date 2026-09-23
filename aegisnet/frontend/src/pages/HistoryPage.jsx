@@ -215,20 +215,12 @@ export default function HistoryPage() {
         }}>
           {/* Left: Code Vortex Brand */}
           <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            {/* Code Vortex vortex logo — same SVG as TopHeader & Footer */}
-            <div style={{
-              width: 44, height: 44, flexShrink: 0,
-              background: 'linear-gradient(135deg, #2563eb 0%, #06b6d4 100%)',
-              borderRadius: 8,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <svg viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 24, height: 24 }}>
-                <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2z" opacity="0.3" />
-                <path d="M12 6a6 6 0 1 0 6 6 6 6 0 0 0-6-6z" opacity="0.65" />
-                <path d="M12 9a3 3 0 1 0 3 3 3 3 0 0 0-3-3z" />
-                <circle cx="12" cy="12" r="1.5" fill="white" stroke="none" />
-              </svg>
-            </div>
+            {/* Code Vortex official monogram logo */}
+            <img
+              src="/code-vortex-logo.png"
+              alt="Code Vortex"
+              style={{ width: 44, height: 44, flexShrink: 0, borderRadius: 8, objectFit: 'cover' }}
+            />
             <div>
               <div style={{ color: '#ffffff', fontSize: 19, fontWeight: 900, letterSpacing: '-0.02em', lineHeight: 1 }}>
                 Code Vortex
@@ -335,13 +327,12 @@ export default function HistoryPage() {
       <div className="no-print bg-white border border-slate-200/90 rounded-3xl p-6 shadow-[0_4px_24px_-4px_rgba(15,23,42,0.06)] flex flex-col md:flex-row md:items-center justify-between gap-5 transition-all">
         {/* Left: Title & Subtitle with Code Vortex Logo */}
         <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-600 via-sky-500 to-cyan-400 flex items-center justify-center text-white shadow-md shadow-blue-500/25 flex-shrink-0">
-            <svg className="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2z" opacity="0.3" />
-              <path d="M12 6a6 6 0 1 0 6 6 6 6 0 0 0-6-6z" opacity="0.65" />
-              <path d="M12 9a3 3 0 1 0 3 3 3 3 0 0 0-3-3z" />
-              <circle cx="12" cy="12" r="1.5" fill="currentColor" />
-            </svg>
+          <div className="w-14 h-14 rounded-2xl bg-black overflow-hidden flex items-center justify-center shadow-md shadow-slate-900/20 border border-slate-800 flex-shrink-0">
+            <img
+              src="/code-vortex-logo.png"
+              alt="Code Vortex"
+              className="w-full h-full object-cover"
+            />
           </div>
           <div className="space-y-1">
             <div className="flex items-center gap-2.5 flex-wrap">
