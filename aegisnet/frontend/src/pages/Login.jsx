@@ -40,7 +40,7 @@ export default function Login() {
   }
 
   return (
-    <div className="relative min-h-screen font-sans overflow-hidden bg-slate-950 flex flex-col justify-between selection:bg-cyan-500 selection:text-white">
+    <div className="relative min-h-screen font-sans overflow-hidden bg-slate-950 flex flex-col selection:bg-cyan-500 selection:text-white">
 
       {/* ── CINEMATIC SYSTEM DETECTION & RESCUE BACKGROUND ── */}
       <div
@@ -281,18 +281,6 @@ export default function Login() {
         </div>
 
       </main>
-
-      {/* ── BOTTOM FOOTER: Official Gujarat Disaster Network Bar ── */}
-      <footer className="relative z-20 max-w-7xl mx-auto w-full px-6 sm:px-10 py-4 flex flex-col sm:flex-row items-center justify-between gap-2 border-t border-white/10 text-[11px] text-slate-400">
-        <div>
-          © 2026 Code Vortex · AegisNet Emergency Monitoring Grid
-        </div>
-        <div className="flex items-center gap-4">
-          <span>State Control: <strong className="text-slate-200">1077</strong></span>
-          <span>Ambulance: <strong className="text-slate-200">108</strong></span>
-          <span>Fire: <strong className="text-slate-200">101</strong></span>
-        </div>
-      </footer>
 
     </div>
   )
