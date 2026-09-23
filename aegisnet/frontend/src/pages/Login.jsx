@@ -58,41 +58,25 @@ export default function Login() {
       <div className="absolute inset-0 pointer-events-none bg-gradient-to-r from-slate-950/45 via-transparent to-slate-950/35" />
       <div className="absolute inset-0 pointer-events-none bg-gradient-to-t from-slate-950/50 via-transparent to-slate-950/30" />
 
-      {/* ── TOP HEADER BAR: AegisNet Brand on Left & Sleek Back Button on Right ── */}
-      <header className="relative z-20 w-full max-w-7xl mx-auto px-6 sm:px-12 pt-6 pb-2 flex items-center justify-between">
-        <Link to="/" className="flex items-center gap-3 group">
-          <div className="w-10 h-10 rounded-2xl bg-white/10 border border-white/20 backdrop-blur-md flex items-center justify-center shadow-lg group-hover:scale-105 group-hover:border-cyan-400/50 transition-all">
-            <span className="text-xl">🛡️</span>
-          </div>
-          <div>
-            <div className="text-sm font-black text-white tracking-tight flex items-center gap-2">
-              <span>AegisNet</span>
-              <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-400/30">
-                GSDMA
-              </span>
-            </div>
-            <div className="text-[11px] text-slate-300 font-medium">State Emergency Operations Center</div>
-          </div>
-        </Link>
-
-        {/* Repositioned Back to Landing Page Button */}
+      {/* ── TOP BAR: Clean Minimal Floating Back Navigation Aligned with Grid ── */}
+      <header className="relative z-20 max-w-7xl mx-auto w-full px-6 sm:px-12 pt-6 sm:pt-8 flex items-center justify-between">
         <Link
           to="/"
-          className="inline-flex items-center gap-2.5 px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 border border-white/25 hover:border-cyan-400/50 text-xs font-semibold text-white transition-all backdrop-blur-md shadow-lg group cursor-pointer hover:shadow-cyan-500/20"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 hover:bg-white/20 border border-white/25 hover:border-cyan-400/50 text-xs font-semibold text-white transition-all group backdrop-blur-md shadow-lg"
         >
-          <span className="w-5 h-5 rounded-full flex items-center justify-center bg-white/15 text-white group-hover:-translate-x-0.5 transition-transform font-bold text-xs">
+          <span className="text-cyan-300 font-bold group-hover:-translate-x-1 transition-transform text-sm">
             ←
           </span>
           <span>Back to Landing Page</span>
         </Link>
       </header>
 
-      {/* ── MAIN VIEWPORT: Minimalist Brand & Live Metrics on Left, Glass Sign-In Card on Right ── */}
-      <main className="relative z-10 flex-1 max-w-7xl mx-auto w-full px-6 sm:px-12 py-6 flex flex-col lg:flex-row items-center justify-between gap-10 lg:gap-16 my-auto">
+      {/* ── MAIN VIEWPORT: Minimalist Brand on Left & Truly Transparent Glass Box on Right ── */}
+      <main className="relative z-10 flex-1 max-w-7xl mx-auto w-full px-6 sm:px-12 py-4 flex flex-col lg:flex-row items-center justify-between gap-8 lg:gap-16">
 
-        {/* ── LEFT HERO: Command Mission & Live Edge Status ── */}
-        <div className="hidden lg:flex flex-col justify-center max-w-xl space-y-6">
-          <div className="inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-full bg-slate-900/60 backdrop-blur-md border border-white/20 text-white shadow-lg w-fit">
+        {/* ── LEFT SIDE: Minimalist Brand Title ── */}
+        <div className="hidden lg:flex flex-col justify-end max-w-lg mb-6 space-y-3.5">
+          <div className="inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-full bg-slate-950/50 backdrop-blur-md border border-white/20 text-white shadow-lg w-fit">
             <span className="text-base">🛡️</span>
             <span className="text-xs font-bold font-mono tracking-widest uppercase text-cyan-300">
               AegisNet Command Gateway
@@ -103,52 +87,19 @@ export default function Login() {
             Detecting Disasters &amp; Saving Lives in Real Time
           </h1>
 
-          <p className="text-slate-200 text-sm font-medium leading-relaxed drop-shadow-[0_2px_8px_rgba(0,0,0,0.95)] max-w-lg">
-            Edge-AI telemetry alerting rescue agencies ahead of flash floods, industrial toxic leaks, and wildfires across Gujarat State.
+          <p className="text-slate-200 text-xs sm:text-sm font-medium leading-relaxed drop-shadow-[0_2px_8px_rgba(0,0,0,0.95)] max-w-md">
+            Edge-AI telemetry alerting rescue agencies ahead of flash floods and wildfires, safeguarding Gujarat State.
           </p>
-
-          {/* 3 Live Telemetry Micro-Badges */}
-          <div className="grid grid-cols-3 gap-3 pt-1">
-            <div className="bg-slate-900/55 border border-white/15 backdrop-blur-md rounded-2xl p-3 shadow-md space-y-1">
-              <div className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                <span className="text-[10px] font-mono font-bold text-emerald-400 uppercase tracking-wider">
-                  Edge Grid
-                </span>
-              </div>
-              <div className="text-sm font-black text-white">15 Active Nodes</div>
-            </div>
-
-            <div className="bg-slate-900/55 border border-white/15 backdrop-blur-md rounded-2xl p-3 shadow-md space-y-1">
-              <div className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
-                <span className="text-[10px] font-mono font-bold text-cyan-400 uppercase tracking-wider">
-                  AI Model
-                </span>
-              </div>
-              <div className="text-sm font-black text-white">QNN TFLite v2.4</div>
-            </div>
-
-            <div className="bg-slate-900/55 border border-white/15 backdrop-blur-md rounded-2xl p-3 shadow-md space-y-1">
-              <div className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse" />
-                <span className="text-[10px] font-mono font-bold text-indigo-400 uppercase tracking-wider">
-                  Forecast
-                </span>
-              </div>
-              <div className="text-sm font-black text-white">2h Ahead Crest</div>
-            </div>
-          </div>
         </div>
 
-        {/* ── RIGHT SIGN-IN CARD ── */}
+        {/* ── RIGHT SIDE: Truly Transparent Frosted Glass Sign-In Card ── */}
         <div className="w-full sm:max-w-md lg:max-w-[420px] mx-auto lg:mx-0 my-auto">
-          <div className="w-full bg-slate-900/65 hover:bg-slate-900/70 backdrop-blur-2xl border border-white/20 hover:border-white/30 rounded-3xl p-7 sm:p-9 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.6)] space-y-6 transition-all">
+          <div className="w-full bg-white/[0.08] hover:bg-white/[0.11] backdrop-blur-xl border border-white/25 hover:border-white/35 rounded-3xl p-7 sm:p-9 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.5)] space-y-6 transition-all">
 
-            {/* Header: TLS 1.3 / AES-256 removed completely */}
+            {/* Header */}
             <div className="space-y-1.5 text-left">
               <div className="flex items-center justify-between">
-                <span className="text-[11px] font-mono font-bold tracking-wider uppercase text-cyan-300 bg-cyan-500/20 border border-cyan-400/30 px-3 py-1 rounded-full backdrop-blur-md">
+                <span className="text-[11px] font-mono font-bold tracking-wider uppercase text-cyan-300 bg-cyan-500/20 border border-cyan-400/30 px-2.5 py-0.5 rounded-full backdrop-blur-md">
                   Agency Sign In
                 </span>
               </div>
@@ -257,20 +208,6 @@ export default function Login() {
         </div>
 
       </main>
-
-      {/* ── SUBTLE BOTTOM FOOTER BAR ── */}
-      <footer className="relative z-20 w-full max-w-7xl mx-auto px-6 sm:px-12 py-4 flex flex-col sm:flex-row items-center justify-between gap-2 text-[11px] text-slate-400 font-mono">
-        <div>
-          Gujarat State Disaster Management Authority (GSDMA) · SEOC
-        </div>
-        <div className="flex items-center gap-4 text-slate-400">
-          <span>Emergency Command: 1070 / 1077</span>
-          <span>•</span>
-          <Link to="/" className="text-slate-300 hover:text-cyan-300 underline underline-offset-2">
-            Landing Page
-          </Link>
-        </div>
-      </footer>
 
     </div>
   )
